@@ -1,0 +1,24 @@
+[
+  {
+    "name": "test",
+    "type": "app",
+    "whiteList": [],
+    "domains": [],
+    "routers": []
+  },
+  {
+    "name": "settings",
+    "type": "settings",
+    "whiteList": [],
+    "domains": [
+      "127.0.0.1",
+      "localhost"
+    ],
+    "routers": [
+      {
+        "errorCode": 404,
+        "location": "/index.html"
+      }
+    ]
+  }
+]

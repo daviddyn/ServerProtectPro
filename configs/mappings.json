@@ -1,0 +1,22 @@
+[
+  {
+    "port": 80,
+    "ssl": false,
+    "apps": [
+      {
+        "name": "test",
+        "root": "/"
+      }
+    ]
+  },
+  {
+    "port": 8000,
+    "ssl": false,
+    "apps": [
+      {
+        "name": "settings",
+        "root": "/"
+      }
+    ]
+  }
+]

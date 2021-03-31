@@ -1,0 +1,187 @@
+{
+  "blockAction": {
+    "method": "action",
+    "lengthInMinute": 0,
+    "action": {
+      "type": "shutdown",
+      "content": {
+        "type": "inline",
+        "mime": "application/json",
+        "content": "{\"code\": 500, \"data\": \"您已被禁止访问。\"}"
+      }
+    },
+    "actionXhr": {
+      "type": "response",
+      "content": {
+        "type": "inline",
+        "mime": "application/json",
+        "content": "{\"code\": 500, \"data\": \"您已被禁止访问。\"}"
+      }
+    }
+  },
+  "config": {
+    "frequencyDetectIntervalInSecond": 1,
+    "frequencyDetectTimes": 50
+  },
+  "illegalAgent": {
+    "method": "action",
+    "lengthInMinute": 0,
+    "action": {
+      "type": "response",
+      "content": {
+        "type": "inline",
+        "mime": "text/html",
+        "content": "<html><head><title>访问被禁止</title></head><body><p>检测到您正在使用爬虫。如果您确实是使用浏览器访问的，请联系我们。联系方式：不告诉你。</p></body></html>"
+      }
+    },
+    "actionXhr": {
+      "type": "response",
+      "content": {
+        "type": "inline",
+        "mime": "application/json",
+        "content": "{\"code\": 500, \"data\": \"检测到您正在使用爬虫。如果您确实是使用浏览器访问的，请联系我们。联系方式：不告诉你。\"}"
+      }
+    }
+  },
+  "illegalData": {
+    "method": "action",
+    "lengthInMinute": 1440,
+    "action": {
+      "type": "shutdown",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    },
+    "actionXhr": {
+      "type": "shutdown",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    }
+  },
+  "illegalForward": {
+    "method": "block",
+    "lengthInMinute": 1440,
+    "action": {
+      "type": "",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    },
+    "actionXhr": {
+      "type": "",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    }
+  },
+  "illegalFreq": {
+    "method": "block",
+    "lengthInMinute": 1440,
+    "action": {
+      "type": "shutdown",
+      "content": {
+        "type": "file",
+        "mime": "",
+        "content": ""
+      }
+    },
+    "actionXhr": {
+      "type": "response",
+      "content": {
+        "type": "inline",
+        "mime": "application/json",
+        "content": "{\"code\": 500, \"data\": \"操作过于频繁。请稍后再试。\"}"
+      }
+    }
+  },
+  "illegalMethod": {
+    "method": "disabled",
+    "lengthInMinute": 0,
+    "action": {
+      "type": "shutdown",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    },
+    "actionXhr": {
+      "type": "",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    }
+  },
+  "illegalRedirect": {
+    "method": "block",
+    "lengthInMinute": 1440,
+    "action": {
+      "type": "",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    },
+    "actionXhr": {
+      "type": "",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    }
+  },
+  "illegalTrace": {
+    "method": "disabled",
+    "lengthInMinute": 0,
+    "action": {
+      "type": "",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    },
+    "actionXhr": {
+      "type": "",
+      "content": {
+        "type": "",
+        "mime": "",
+        "content": ""
+      }
+    }
+  },
+  "paths": {
+    "urls": [
+      {
+        "id": 0,
+        "url": "/"
+      },
+      {
+        "id": 102,
+        "url": "/def"
+      },
+      {
+        "id": 103,
+        "url": "5667897hkhjkhjk\ntjhytryyutryu"
+      },
+      {
+        "id": 104,
+        "url": "/dfsgsdfgsdfg"
+      }
+    ],
+    "topology": []
+  }
+}
