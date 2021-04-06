@@ -8,6 +8,7 @@ import com.davidsoft.serverprotect.libs.HttpPath;
 import javax.net.ssl.SSLSocketFactory;
 import java.io.IOException;
 import java.net.Socket;
+import com.davidsoft.serverprotect.http.*;
 
 public class ForwardWebApplication extends BaseWebApplication {
 
@@ -54,10 +55,13 @@ public class ForwardWebApplication extends BaseWebApplication {
 
         //2. 将收到的请求转换为要发给目标服务器的格式
 
+		HttpRequestInfo targetRequestInfo = new HttpRequestInfo(requestReceiver.getRequestInfo());
         //更改Domain
-
-        //requestReceiver.getRequestInfo().
-        //requestReceiver.getContentCharset()
+		targetRequestInfo.headers.setFieldValue("Domain", targetDomain);
+		//如果有Referer，则更改Referer的协议和域名部分
+		
+		//如果有Origin，则更改Origin的协议域名部分
+        
         return null;
     }
 }

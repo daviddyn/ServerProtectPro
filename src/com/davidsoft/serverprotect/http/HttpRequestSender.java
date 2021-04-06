@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 
 public class HttpRequestSender {
 
+	private static final byte[] CRLF_BYTES = "\r\n".getBytes(StandardCharsets.UTF_8);
+	
     private final HttpRequestInfo requestInfo;
     private final HttpContentProvider contentProvider;
 
@@ -78,7 +80,7 @@ public class HttpRequestSender {
             }
         }
         requestInfo.toHttpStream(out);
-        out.write("\r\n".getBytes(StandardCharsets.UTF_8));
+        out.write(CRLF_BYTES);
         if (hasContent) {
             if (contentProvider.useChunkedTransfer()) {
                 HttpChunkedOutputStream chunkedOut = new HttpChunkedOutputStream(out);
@@ -90,7 +92,7 @@ public class HttpRequestSender {
                 if (suspendedHeaders != null) {
                     suspendedHeaders.toRequestStream(out);
                 }
-                out.write("\r\n".getBytes(StandardCharsets.UTF_8));
+                out.write(CRLF_BYTES);
             }
             else {
                 if (contentEncoding == null) {
