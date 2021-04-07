@@ -19,9 +19,10 @@ public class HttpRequestSender {
 
     //注：content-encoding的信息从requestInfo中获取，content-type、content-length、transfer-encoding等字段会被从contentProvider覆盖。
 
-    public void send(OutputStream out, String contentEncoding) throws IOException {
+    public void send(OutputStream out) throws IOException {
         boolean hasContent;
         DirectReferByteArrayOutputStream buffer = null;
+        String contentEncoding = null;
 
         long contentLength = -1;
         if (contentProvider == null) {
@@ -44,11 +45,11 @@ public class HttpRequestSender {
                 }
             }
             if (hasContent) {
+                contentEncoding = requestInfo.headers.getFieldValue("Content-Encoding");
                 if (contentEncoding != null) {
                     if (!HttpContentEncodedStreamFactory.getSupportedContentEncodings().contains(contentEncoding)) {
                         throw new IllegalArgumentException("不支持的ContentEncoding：" + contentEncoding);
                     }
-                    requestInfo.headers.setFieldValue("Content-Encoding", contentEncoding);
                 }
                 String value = contentProvider.getMimeType();
                 if (value != null) {

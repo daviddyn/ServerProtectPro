@@ -16,6 +16,11 @@ public class HttpContentInputStream extends InputStream {
 
     private int readingState;
 
+    /**
+     * chunked = true, contentLength参数将被忽略。
+     * chunked = false, contentLength=-1 代表直接读到流末尾(此时连接一定是不复用的)。
+     * chunked = false, contentLength=具体数值 代表读取指定字节数。
+     */
     public HttpContentInputStream(InputStream source, boolean chunked, long contentLength) throws IOException {
         this.source = new LengthLimitInputStream(source);
         this.chunked = chunked;

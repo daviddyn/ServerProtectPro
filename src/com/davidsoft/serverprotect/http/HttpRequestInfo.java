@@ -41,9 +41,21 @@ public final class HttpRequestInfo {
         headers.toRequestStream(out);
     }
 
+    /**
+     * 从输入流中成功解析Http请求头。
+     */
     public static final int SUCCESS = 0;
+    /**
+     * 输入流中Http请求头语法不正确。
+     */
     public static final int INVALID_DATA = 1;
+    /**
+     * 从输入流中读入的Http请求头超过了给定的字节数。
+     */
     public static final int HEADER_SIZE_EXCEED = 2;
+    /**
+     * 从输入流中读入的Http请求头中的URI部分超过了给定的字符数。
+     */
     public static final int PATH_LENGTH_EXCEED = 3;
 
     //此方法会接收多余的空行

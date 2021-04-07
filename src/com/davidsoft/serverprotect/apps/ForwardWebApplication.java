@@ -100,7 +100,7 @@ public class ForwardWebApplication extends BaseWebApplication {
         //4. 向目标服务器发送请求，发生网络问题则向浏览器返回502
         
         try {
-            requestSender.send(targetOutputStream, null);
+            requestSender.send(targetOutputStream);
         }
         catch (IOException e) {
             return new HttpResponseSender(new HttpResponseInfo(502), null);
