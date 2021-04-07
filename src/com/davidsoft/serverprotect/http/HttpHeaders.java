@@ -37,7 +37,14 @@ public class HttpHeaders {
     }
 
     public void setFieldValue(String fieldName, String value) {
-        headers.put(fieldName.toLowerCase(), new String[]{fieldName, value});
+        String[] pair = headers.get(fieldName.toLowerCase());
+        if (pair == null) {
+            pair = new String[]{fieldName, value};
+            headers.put(fieldName.toLowerCase(), pair);
+        }
+        else {
+            pair[1] = value;
+        }
     }
 
     public void removeField(String fieldName) {

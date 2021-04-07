@@ -6,11 +6,12 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.lang.reflect.*;
 
 public final class Utils {
 
     public static String readHttpLine(InputStream in, StringBuilder bufferReuse) throws IOException {
-        //http可以保证一个字节代表一个字符
+        //http协议头部内容可以保证一个字节代表一个字符
         bufferReuse.delete(0, bufferReuse.length());
         int b;
         boolean crRead = false;
@@ -95,5 +96,68 @@ public final class Utils {
             }
         }
         return null;
+    }
+    
+    public static String getHostFromDomain(String domain) {
+        int findPos = domain.indexOf(':');
+        if (findPos == -1) {
+            return domain;
+        }
+        else {
+            return domain.substring(0, findPos);
+        }
+    }
+    
+    public static int getPortFromDomain(String domain, boolean ssl) {
+        int findPos = domain.indexOf(':');
+        if (findPos == -1) {
+            return ssl ? 80: 443;
+        }
+        else {
+            try {
+                return Integer.parseInt(domain.substring(findPos + 1));
+            }
+            catch (NumberFormatException e) {
+                return ssl ? 80: 443;
+            }
+        }
+    }
+    
+    public static String buildDomain(String host, int port, boolean ssl) {
+        if (ssl) {
+            if (port == 443) {
+                return host;
+            }
+            else {
+                return host + ":" + port;
+            }
+        }
+        else {
+            if (port == 80) {
+                return host;
+            }
+            else {
+                return host + ":" + port;
+            }
+        }
+    }
+    
+    public static String buildOrigin(String host, int port, boolean ssl) {
+        if (ssl) {
+            if (port == 443) {
+                return "https://" + host;
+            }
+            else {
+                return "https://" + host + ":" + port;
+            }
+        }
+        else {
+            if (port == 80) {
+                return "http://"+ host;
+            }
+            else {
+                return "http://" + host + ":" + port;
+            }
+        }
     }
 }
