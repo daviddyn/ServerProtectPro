@@ -185,7 +185,7 @@ public final class SettingsWebApplication extends FileWebApplication {
     }
 
     private HttpResponseSender receiveJson(HttpRequestReceiver requestReceiver, JsonNode[] out) {
-        HttpResponseSender response = AppUtils.analyseRequestContent(requestReceiver, "application/json");
+        HttpResponseSender response = AppUtils.requireContent(requestReceiver, "application/json");
         if (response != null) {
             return response;
         }
@@ -195,6 +195,9 @@ public final class SettingsWebApplication extends FileWebApplication {
         }
         try {
             out[0] = new HttpContentJsonReceiver(charset).onReceive(requestReceiver.getContentInputStream(), requestReceiver.getContentLength());
+            if (requestReceiver.hasSuspendedHeaders()) {
+                requestReceiver.readSuspendedHeaders();
+            }
         }
         catch (ContentTooLargeException e) {
             return new HttpResponseSender(new HttpResponseInfo(413), null);

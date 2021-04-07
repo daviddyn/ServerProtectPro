@@ -216,13 +216,14 @@ public class ClientConnection implements PooledRunnable {
 
             //第一步：等待浏览器发来请求、解析请求
 
-            HttpRequestReceiver httpRequestReceiver = new HttpRequestReceiver(in);
+            HttpRequestReceiver httpRequestReceiver = new HttpRequestReceiver(
+                    in,
+                    Settings.getStaticSettings().maxPathLength,
+                    Settings.getStaticSettings().maxHeaderSize
+            );
             int receiveState;
             try {
-                receiveState = httpRequestReceiver.receive(
-                        Settings.getStaticSettings().maxPathLength,
-                        Settings.getStaticSettings().maxHeaderSize
-                );
+                receiveState = httpRequestReceiver.receive();
             }
             catch (IOException e) {
                 //接收请求时发生网络异常则直接断开连接
@@ -343,7 +344,7 @@ public class ClientConnection implements PooledRunnable {
                 webApplication.onCreate();
             }
 
-            //第三步：如果此APP启用了防火墙，则逐一判断规则
+            //第四步：如果此APP启用了防火墙，则逐一判断规则
 
             if (webApplication.isProtectEnabled()) {
                 //判断ip封禁
@@ -399,7 +400,37 @@ public class ClientConnection implements PooledRunnable {
                 }
             }
 
-            //第四步：执行webapp，获得正常情况下应当向浏览器返回的内容。
+            //第五步：分析请求头是否合理
+
+            switch (httpRequestReceiver.analyseContent()) {
+                case HttpRequestReceiver.ANALYSE_SUCCESS:
+                    responseSender = null;
+                    break;
+                case HttpRequestReceiver.ANALYSE_UNSUPPORTED_CONTENT_ENCODING:
+                    responseSender = new HttpResponseSender(new HttpResponseInfo(501), null);
+                    break;
+                case HttpRequestReceiver.ANALYSE_CONTENT_LENGTH_REQUIRED:
+                    responseSender = new HttpResponseSender(new HttpResponseInfo(411), null);
+                    break;
+                case HttpRequestReceiver.ANALYSE_MALFORMED_CONTENT_LENGTH:
+                    responseSender = new HttpResponseSender(new HttpResponseInfo(400), null);
+                    break;
+                default:
+                    responseSender = new HttpResponseSender(new HttpResponseInfo(500), null);
+                    break;
+            }
+            if (responseSender != null) {
+                try {
+                    sendResponse(responseSender, flag && clientWantToKeepConnection, responseEncoding, out);
+                }
+                catch (IOException e) {
+                    com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
+                    webApplication.onDestroy();
+                    return;
+                }
+            }
+
+            //第六步：执行webapp，获得正常情况下应当向浏览器返回的内容。
 
             //调用WebApp的onClientRequest方法获得返回内容
             responseSender = webApplication.onClientRequest(httpRequestReceiver, clientIp, serverPort, ssl);
