@@ -10,7 +10,7 @@ public interface HttpContentProvider {
 
     Charset getCharset();
 
-    int getContentLength();
+    long getContentLength();
 
     boolean useChunkedTransfer();
 

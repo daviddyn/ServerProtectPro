@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.Socket;
 import com.davidsoft.serverprotect.http.*;
 import java.io.*;
+import org.apache.http.protocol.*;
 
 public class ForwardWebApplication extends BaseWebApplication {
 
@@ -73,11 +74,12 @@ public class ForwardWebApplication extends BaseWebApplication {
             }
             targetRequestInfo.headers.setFieldValue("Origin", value);
         }
+        //TODO: 处理Cookie
         
         //2. 构造准备发给目标服务器的内容
         HttpRequestSender requestSender = new HttpRequestSender(
             targetRequestInfo,
-            null
+            requestReceiver.hasContent() ? new HttpContentForwardProvider(requestReceiver) : null
         );
         
         //3. 尝试连接目标服务器，连不上、发生网络问题则向浏览器返回502
@@ -106,12 +108,25 @@ public class ForwardWebApplication extends BaseWebApplication {
             return new HttpResponseSender(new HttpResponseInfo(502), null);
         }
         
-        //5. 从目标服务器接收Response，发生网络问题则向浏览器返回502
+        //5. 从目标服务器接收Response，发生网络问题、不符合语法则向浏览器返回502
         
-        HttpResponseReceiver responseReceiver = new HttpResponseReceiver(targetInputStream);
-        responseReceiver.receive();
-
+        HttpResponseReceiver responseReceiver;
+        try {
+            responseReceiver = new HttpResponseReceiver(targetInputStream);
+            if (!responseReceiver.receive() || responseReceiver.analyseContent() != HttpResponseReceiver.ANALYSE_SUCCESS) {
+                return new HttpResponseSender(new HttpResponseInfo(502), null);
+            }
+        }
+        catch (IOException e) {
+            return new HttpResponseSender(new HttpResponseInfo(502), null);
+        }
         
-        return null;
+        //6. 将收到的请求转换为要发浏览器的格式
+        
+        HttpResponseInfo responseInfo = responseReceiver.getResponseInfo();
+        //TODO: 处理Cookie
+        
+        
+        return new HttpResponseSender(responseInfo, );
     }
 }

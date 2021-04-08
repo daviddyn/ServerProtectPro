@@ -20,7 +20,7 @@ public final class HttpRequestReceiver {
     private final int maxHeaderSize;
 
     private final HttpRequestInfo requestInfo;
-    private InputStream analysedContentInputStream;
+    //private InputStream analysedContentInputStream;
 
     private boolean hasContent;
 
@@ -156,18 +156,30 @@ public final class HttpRequestReceiver {
      * @return 用于读取请求Content的输入流。如果此请求没有Content，即{@link #hasContent()}返回{@code false}，则函数返回{@code null}。
      */
     public InputStream getContentInputStream() throws IOException {
-        if (!hasContent) {
-            return null;
-        }
-        if (analysedContentInputStream == null) {
-            analysedContentInputStream = HttpContentEncodedStreamFactory.instanceInputStream(
-                    new HttpContentInputStream(in, chunkedTransfer, contentLength),
-                    requestInfo.headers.getFieldValue("Content-Encoding")
+        if (hasContent) {
+            return HttpContentEncodedStreamFactory.instanceInputStream(
+                new HttpContentInputStream(in, chunkedTransfer, contentLength),
+                requestInfo.headers.getFieldValue("Content-Encoding")
             );
         }
-        return analysedContentInputStream;
+        return null;
     }
-
+    
+    /**
+     * <p>获得用于读取请求Content原始数据的输入流。</p>
+     * <p>返回的流仅具备检测Content是否已读完的功能，并不会根据Transfer-Encoding和Content-Encoding对内容进行解码。</p>
+     * <p></p>
+     * <p>注意：此函数需要在成功调用{@link #analyseContent()}函数后调用。</p>
+     * 
+     * @return 用于读取请求Content的输入流。如果此请求没有Content，即{@link #hasContent()}返回{@code false}，则函数返回{@code null}。
+     */
+    public InputStream getContentRawInputStream() throws IOException {
+        if (hasContent) {
+            return new HttpContentRawInputStream(in, chunkedTransfer, contentLength);
+        }
+        return null;
+    }
+    
     /**
      * <p>判断此请求是否含有悬挂头。</p>
      * <p>悬挂头仅且必存在于ChunkedTransfer中，一般用于声明那些浏览器只有将Content内容全部发送给服务器后才会知晓的信息(如 Content-MD5)。悬挂头的语法格式与普通的请求头相同。</p>
