@@ -1,4 +1,4 @@
-package com.davidsoft.serverprotect.http;
+package com.davidsoft.http;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.lang.reflect.*;
 
 public final class Utils {
 

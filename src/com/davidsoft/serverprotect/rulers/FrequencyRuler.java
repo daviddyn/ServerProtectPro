@@ -2,8 +2,8 @@ package com.davidsoft.serverprotect.rulers;
 
 import com.davidsoft.serverprotect.Utils;
 import com.davidsoft.serverprotect.components.FrequencyManager;
-import com.davidsoft.serverprotect.http.HttpRequestInfo;
-import com.davidsoft.serverprotect.http.HttpResponseInfo;
+import com.davidsoft.http.HttpRequestInfo;
+import com.davidsoft.http.HttpResponseInfo;
 
 public class FrequencyRuler implements Ruler {
 

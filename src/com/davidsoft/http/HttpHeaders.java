@@ -1,6 +1,4 @@
-package com.davidsoft.serverprotect.http;
-
-import com.davidsoft.serverprotect.libs.UrlCodec;
+package com.davidsoft.http;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -4,7 +4,26 @@
     "type": "app",
     "whiteList": [],
     "domains": [],
-    "routers": []
+    "routers": [],
+    "target": {
+      "domain": "",
+      "port": 0,
+      "ssl": false,
+      "forwardIp": false
+    }
+  },
+  {
+    "name": "evaluate",
+    "type": "forward",
+    "whiteList": [],
+    "domains": [],
+    "routers": [],
+    "target": {
+      "domain": "apps.neu.edu.qizhiqiang.com",
+      "port": 443,
+      "ssl": true,
+      "forwardIp": false
+    }
   },
   {
     "name": "settings",
@@ -19,6 +38,12 @@
         "errorCode": 404,
         "location": "/index.html"
       }
-    ]
+    ],
+    "target": {
+      "domain": "",
+      "port": 0,
+      "ssl": false,
+      "forwardIp": false
+    }
   }
 ]

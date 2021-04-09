@@ -1,13 +1,25 @@
 [
   {
-    "port": 80,
+    "port": 8080,
     "ssl": false,
     "apps": [
       {
         "name": "test",
         "root": "/"
       }
-    ]
+    ],
+    "defaultApp": ""
+  },
+  {
+    "port": 80,
+    "ssl": false,
+    "apps": [
+      {
+        "name": "evaluate",
+        "root": "/"
+      }
+    ],
+    "defaultApp": "evaluate"
   },
   {
     "port": 8000,
@@ -17,6 +29,7 @@
         "name": "settings",
         "root": "/"
       }
-    ]
+    ],
+    "defaultApp": ""
   }
 ]

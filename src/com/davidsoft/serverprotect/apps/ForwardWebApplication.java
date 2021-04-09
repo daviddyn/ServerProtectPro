@@ -1,16 +1,14 @@
 package com.davidsoft.serverprotect.apps;
 
-import com.davidsoft.serverprotect.http.HttpRequestReceiver;
-import com.davidsoft.serverprotect.http.HttpResponseInfo;
-import com.davidsoft.serverprotect.http.HttpResponseSender;
+import com.davidsoft.http.HttpResponseInfo;
+import com.davidsoft.http.HttpResponseSender;
 import com.davidsoft.serverprotect.libs.HttpPath;
 
 import javax.net.ssl.SSLSocketFactory;
 import java.io.IOException;
 import java.net.Socket;
-import com.davidsoft.serverprotect.http.*;
+import com.davidsoft.http.*;
 import java.io.*;
-import org.apache.http.protocol.*;
 
 public class ForwardWebApplication extends BaseWebApplication {
 
@@ -41,13 +39,13 @@ public class ForwardWebApplication extends BaseWebApplication {
     }
 
     @Override
-    protected HttpResponseSender onClientRequest(HttpRequestReceiver requestReceiver, String ip, HttpPath requestRelativePath) {
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, String ip, HttpPath requestRelativePath) {
         //1. 将收到的请求转换为要发给目标服务器的格式
 
-        String origin = com.davidsoft.serverprotect.http.Utils.buildOrigin(targetDomain, targetPort, targetSSL);
-		HttpRequestInfo targetRequestInfo = new HttpRequestInfo(requestReceiver.getRequestInfo());
+        String origin = com.davidsoft.http.Utils.buildOrigin(targetDomain, targetPort, targetSSL);
+		HttpRequestInfo targetRequestInfo = new HttpRequestInfo(requestInfo);
         //更改Domain
-		targetRequestInfo.headers.setFieldValue("Domain", com.davidsoft.serverprotect.http.Utils.buildDomain(targetDomain, targetPort, targetSSL));
+		targetRequestInfo.headers.setFieldValue("Domain", com.davidsoft.http.Utils.buildDomain(targetDomain, targetPort, targetSSL));
 		//如果有Referer，则更改Referer的协议和域名部分
         String value = targetRequestInfo.headers.getFieldValue("Referer");
 		if (value != null) {
@@ -74,12 +72,16 @@ public class ForwardWebApplication extends BaseWebApplication {
             }
             targetRequestInfo.headers.setFieldValue("Origin", value);
         }
+        //如果转发ip，则添加X-Forwarded-For字段
+        if (forwardIp) {
+            targetRequestInfo.headers.setFieldValue("X-Forwarded-For", ip);
+        }
         //TODO: 处理Cookie
         
         //2. 构造准备发给目标服务器的内容
         HttpRequestSender requestSender = new HttpRequestSender(
-            targetRequestInfo,
-            requestReceiver.hasContent() ? new HttpContentForwardProvider(requestReceiver) : null
+                targetRequestInfo,
+                requestContent == null ? null : new HttpContentForwardProvider(requestContent)
         );
         
         //3. 尝试连接目标服务器，连不上、发生网络问题则向浏览器返回502
@@ -107,26 +109,30 @@ public class ForwardWebApplication extends BaseWebApplication {
         catch (IOException e) {
             return new HttpResponseSender(new HttpResponseInfo(502), null);
         }
-        
+
         //5. 从目标服务器接收Response，发生网络问题、不符合语法则向浏览器返回502
-        
-        HttpResponseReceiver responseReceiver;
+
+        HttpResponseInfo responseInfo;
         try {
-            responseReceiver = new HttpResponseReceiver(targetInputStream);
-            if (!responseReceiver.receive() || responseReceiver.analyseContent() != HttpResponseReceiver.ANALYSE_SUCCESS) {
+            responseInfo = HttpResponseInfo.fromHttpStream(targetInputStream);
+            if (responseInfo == null) {
                 return new HttpResponseSender(new HttpResponseInfo(502), null);
             }
         }
         catch (IOException e) {
             return new HttpResponseSender(new HttpResponseInfo(502), null);
         }
+        HttpContentReceiver targetContentReceiver = new HttpContentReceiver(targetInputStream, responseInfo.headers);
+        if (targetContentReceiver.analyseContent() != HttpContentReceiver.ANALYSE_SUCCESS) {
+            return new HttpResponseSender(new HttpResponseInfo(502), null);
+        }
         
         //6. 将收到的请求转换为要发浏览器的格式
         
-        HttpResponseInfo responseInfo = responseReceiver.getResponseInfo();
         //TODO: 处理Cookie
-        
-        
-        return new HttpResponseSender(responseInfo, );
+
+        //7. 发送给浏览器
+
+        return new HttpResponseSender(responseInfo, new HttpContentForwardProvider(targetContentReceiver));
     }
 }

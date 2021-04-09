@@ -420,7 +420,7 @@ public final class Settings {
         }
         AppNode[] appNodes;
         try {
-            appNodes = configFileInfos[0].fileJson.toObject(AppNode[].class);
+            appNodes = JsonNode.toObject(configFileInfos[0].fileJson, AppNode[].class);
         }
         catch (IllegalStateException | IllegalArgumentException e) {
             throw new IOException(configFileInfos[0].name + " 格式不正确，请重新配置。");
@@ -434,7 +434,7 @@ public final class Settings {
         }
         MappingNode[] mappingNodes;
         try {
-            mappingNodes = configFileInfos[1].fileJson.toObject(MappingNode[].class);
+            mappingNodes = JsonNode.toObject(configFileInfos[1].fileJson, MappingNode[].class);
         }
         catch (IllegalStateException | IllegalArgumentException e) {
             throw new IOException(configFileInfos[1].name + " 格式不正确，请重新配置。");
@@ -448,7 +448,7 @@ public final class Settings {
         }
         ProtectNode protectNode;
         try {
-            protectNode = configFileInfos[2].fileJson.toObject(ProtectNode.class);
+            protectNode = JsonNode.toObject(configFileInfos[2].fileJson, ProtectNode.class);
         }
         catch (IllegalStateException | IllegalArgumentException e) {
             throw new IOException(configFileInfos[2].name + " 格式不正确，请重新配置。");

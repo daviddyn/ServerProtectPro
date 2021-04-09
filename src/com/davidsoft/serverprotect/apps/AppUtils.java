@@ -1,16 +1,16 @@
 package com.davidsoft.serverprotect.apps;
 
-import com.davidsoft.serverprotect.http.HttpRequestReceiver;
-import com.davidsoft.serverprotect.http.HttpResponseInfo;
-import com.davidsoft.serverprotect.http.HttpResponseSender;
+import com.davidsoft.http.HttpContentReceiver;
+import com.davidsoft.http.HttpResponseInfo;
+import com.davidsoft.http.HttpResponseSender;
 
 public class AppUtils {
 
-    public static HttpResponseSender requireContent(HttpRequestReceiver requestReceiver, String acceptableContentType) {
-        if (!requestReceiver.hasContent()) {
+    public static HttpResponseSender requireContent(HttpContentReceiver contentReceiver, String acceptableContentType) {
+        if (contentReceiver == null || !contentReceiver.hasContent()) {
             return new HttpResponseSender(new HttpResponseInfo(415), null);
         }
-        String contentType = requestReceiver.getContentType();
+        String contentType = contentReceiver.getContentType();
         if (acceptableContentType != null && contentType != null && !contentType.equals(acceptableContentType)) {
             return new HttpResponseSender(new HttpResponseInfo(415), null);
         }

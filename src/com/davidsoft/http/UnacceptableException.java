@@ -1,4 +1,4 @@
-package com.davidsoft.serverprotect.http;
+package com.davidsoft.http;
 
 public class UnacceptableException extends Exception {
 

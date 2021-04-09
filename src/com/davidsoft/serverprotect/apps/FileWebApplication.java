@@ -1,9 +1,6 @@
 package com.davidsoft.serverprotect.apps;
 
-import com.davidsoft.serverprotect.http.HttpContentFileProvider;
-import com.davidsoft.serverprotect.http.HttpRequestReceiver;
-import com.davidsoft.serverprotect.http.HttpResponseInfo;
-import com.davidsoft.serverprotect.http.HttpResponseSender;
+import com.davidsoft.http.*;
 import com.davidsoft.serverprotect.libs.HttpPath;
 
 import java.io.File;
@@ -31,7 +28,7 @@ public class FileWebApplication extends BaseWebApplication {
     }
 
     @Override
-    protected HttpResponseSender onClientRequest(HttpRequestReceiver requestReceiver, String ip, HttpPath requestRelativePath) {
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, String ip, HttpPath requestRelativePath) {
         return fileResponse(new File(getApplicationRootFile() + File.separator + String.join(File.separator, requestRelativePath.getPatterns())));
     }
 

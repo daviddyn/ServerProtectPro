@@ -1,7 +1,7 @@
 package com.davidsoft.serverprotect.components;
 
 import com.davidsoft.serverprotect.apps.WebApplicationFactory;
-import com.davidsoft.serverprotect.http.*;
+import com.davidsoft.http.*;
 import com.davidsoft.serverprotect.libs.HttpPath;
 import com.davidsoft.serverprotect.libs.PathIndex;
 import com.davidsoft.serverprotect.libs.PooledRunnable;
@@ -216,21 +216,20 @@ public class ClientConnection implements PooledRunnable {
 
             //第一步：等待浏览器发来请求、解析请求
 
-            HttpRequestReceiver httpRequestReceiver = new HttpRequestReceiver(
-                    in,
-                    Settings.getStaticSettings().maxPathLength,
-                    Settings.getStaticSettings().maxHeaderSize
-            );
-            int receiveState;
+            HttpRequestInfo requestInfo = new HttpRequestInfo();
+            int receiveResult;
             try {
-                receiveState = httpRequestReceiver.receive();
+                receiveResult = requestInfo.fromHttpStream(in,
+                        Settings.getStaticSettings().maxPathLength,
+                        Settings.getStaticSettings().maxHeaderSize
+                );
             }
             catch (IOException e) {
                 //接收请求时发生网络异常则直接断开连接
                 com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
                 return;
             }
-            switch (receiveState) {
+            switch (receiveResult) {
                 case HttpRequestInfo.SUCCESS:
                     //解析成功
                     break;
@@ -281,7 +280,7 @@ public class ClientConnection implements PooledRunnable {
             //第二步：从请求头中获取一些必要信息
 
             //如果http版本不是1.1，则向浏览器发送505 HTTP Version not supported，并断开连接。
-            if (!"HTTP/1.1".equals(httpRequestReceiver.getRequestInfo().protocolVersion)) {
+            if (!"HTTP/1.1".equals(requestInfo.protocolVersion)) {
                 try {
                     sendResponse(new HttpResponseSender(new HttpResponseInfo(505), null), false, null, out);
                 } catch (IOException ignored) {}
@@ -290,14 +289,14 @@ public class ClientConnection implements PooledRunnable {
             }
 
             //通过X-Requested-With字段的情况判断是否为xhr请求。
-            boolean xhr = "XMLHttpRequest".equals(httpRequestReceiver.getRequestInfo().headers.getFieldValue("X-Requested-With"));
+            boolean xhr = "XMLHttpRequest".equals(requestInfo.headers.getFieldValue("X-Requested-With"));
             //通过Connection字段的情况判断浏览器是否想复用此连接。
-            boolean clientWantToKeepConnection = !"close".equals(httpRequestReceiver.getRequestInfo().headers.getFieldValue("Connection"));
+            boolean clientWantToKeepConnection = !"close".equals(requestInfo.headers.getFieldValue("Connection"));
             if (!clientWantToKeepConnection) {
                 flag = false;
             }
             //通过Accept-Encoding字段的情况判断浏览器想以何种压缩方式返回内容。responseEncoding为null则代表不压缩，返回原始数据。
-            String responseEncoding = Utils.analyseQualityValues(httpRequestReceiver.getRequestInfo().headers.getFieldValue("Accept-Encoding"), HttpContentEncodedStreamFactory.getSupportedContentEncodings());
+            String responseEncoding = Utils.analyseQualityValues(requestInfo.headers.getFieldValue("Accept-Encoding"), HttpContentEncodedStreamFactory.getSupportedContentEncodings());
 
             //第三步：实例化webapp
 
@@ -306,7 +305,7 @@ public class ClientConnection implements PooledRunnable {
             //根据浏览器发来的URL，从映射表中找到映射的APP
             Settings.WebApplication webApplicationSettings;
             HttpPath appWorkingRootPath;
-            PathIndex.QueryResult<Settings.WebApplication> queryResult = applicationMapping.mappedApps.get(httpRequestReceiver.getRequestInfo().path);
+            PathIndex.QueryResult<Settings.WebApplication> queryResult = applicationMapping.mappedApps.get(requestInfo.path);
             if (queryResult == null) {
                 webApplicationSettings = applicationMapping.defaultApp;
                 appWorkingRootPath = new HttpPath();
@@ -361,7 +360,7 @@ public class ClientConnection implements PooledRunnable {
                 }
                 //其他规则
                 for (RulerNode ruler : rulers) {
-                    if (ruler.ruler.judge(clientIp, httpRequestReceiver.getRequestInfo())) {
+                    if (ruler.ruler.judge(clientIp, requestInfo)) {
                         continue;
                     }
                     if (ruler.block) {
@@ -402,38 +401,42 @@ public class ClientConnection implements PooledRunnable {
 
             //第五步：分析请求头是否合理
 
-            switch (httpRequestReceiver.analyseContent()) {
-                case HttpRequestReceiver.ANALYSE_SUCCESS:
-                    responseSender = null;
-                    break;
-                case HttpRequestReceiver.ANALYSE_UNSUPPORTED_CONTENT_ENCODING:
-                    responseSender = new HttpResponseSender(new HttpResponseInfo(501), null);
-                    break;
-                case HttpRequestReceiver.ANALYSE_CONTENT_LENGTH_REQUIRED:
-                    responseSender = new HttpResponseSender(new HttpResponseInfo(411), null);
-                    break;
-                case HttpRequestReceiver.ANALYSE_MALFORMED_CONTENT_LENGTH:
-                    responseSender = new HttpResponseSender(new HttpResponseInfo(400), null);
-                    break;
-                default:
-                    responseSender = new HttpResponseSender(new HttpResponseInfo(500), null);
-                    break;
-            }
-            if (responseSender != null) {
-                try {
-                    sendResponse(responseSender, flag && clientWantToKeepConnection, responseEncoding, out);
+            HttpContentReceiver contentReceiver = null;
+            if ("POST".equals(requestInfo.method)) {
+                contentReceiver = new HttpContentReceiver(in, requestInfo.headers);
+                switch (contentReceiver.analyseContent()) {
+                    case HttpContentReceiver.ANALYSE_SUCCESS:
+                        responseSender = null;
+                        break;
+                    case HttpContentReceiver.ANALYSE_UNSUPPORTED_CONTENT_ENCODING:
+                        responseSender = new HttpResponseSender(new HttpResponseInfo(501), null);
+                        break;
+                    case HttpContentReceiver.ANALYSE_CONTENT_LENGTH_REQUIRED:
+                        responseSender = new HttpResponseSender(new HttpResponseInfo(411), null);
+                        break;
+                    case HttpContentReceiver.ANALYSE_MALFORMED_CONTENT_LENGTH:
+                        responseSender = new HttpResponseSender(new HttpResponseInfo(400), null);
+                        break;
+                    default:
+                        responseSender = new HttpResponseSender(new HttpResponseInfo(500), null);
+                        break;
                 }
-                catch (IOException e) {
-                    com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
-                    webApplication.onDestroy();
-                    return;
+                if (responseSender != null) {
+                    try {
+                        sendResponse(responseSender, flag && clientWantToKeepConnection, responseEncoding, out);
+                    }
+                    catch (IOException e) {
+                        com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
+                        webApplication.onDestroy();
+                        return;
+                    }
                 }
             }
 
             //第六步：执行webapp，获得正常情况下应当向浏览器返回的内容。
 
             //调用WebApp的onClientRequest方法获得返回内容
-            responseSender = webApplication.onClientRequest(httpRequestReceiver, clientIp, serverPort, ssl);
+            responseSender = webApplication.onClientRequest(requestInfo, contentReceiver, clientIp, serverPort, ssl);
             //如果onClientRequest返回null则直接断开连接
             if (responseSender == null) {
                 com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);

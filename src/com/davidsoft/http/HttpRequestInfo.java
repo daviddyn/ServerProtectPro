@@ -1,4 +1,4 @@
-package com.davidsoft.serverprotect.http;
+package com.davidsoft.http;
 
 import com.davidsoft.serverprotect.libs.HttpPath;
 
@@ -63,7 +63,7 @@ public final class HttpRequestInfo {
         StringBuilder stringBuilder = new StringBuilder();
 
         //读第一行
-        String line = com.davidsoft.serverprotect.http.Utils.readHttpLine(in, stringBuilder);
+        String line = com.davidsoft.http.Utils.readHttpLine(in, stringBuilder);
         //解析method
         int findPos = line.indexOf(' ');
         if (findPos == -1 || findPos == 0 || findPos > 7) {

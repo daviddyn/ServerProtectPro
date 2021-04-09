@@ -1,4 +1,4 @@
-package com.davidsoft.serverprotect.libs;
+package com.davidsoft.http;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;

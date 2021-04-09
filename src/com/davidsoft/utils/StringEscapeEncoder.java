@@ -1,6 +1,6 @@
 package com.davidsoft.utils;
 
-public interface StringEscaper {
+public interface StringEscapeEncoder {
 
-    String escape(String src);
+    String encode(String src);
 }

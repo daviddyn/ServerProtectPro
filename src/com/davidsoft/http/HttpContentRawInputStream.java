@@ -1,4 +1,4 @@
-package com.davidsoft.serverprotect.http;
+package com.davidsoft.http;
 
 /**
  * 与{@link HttpContentInputStream}的区别是，此类仅根据chunked和contentLength分析读取何时结束，并不会对读取到的内容进行解码，从此流中读到的数据是原始数据。

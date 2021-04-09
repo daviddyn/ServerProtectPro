@@ -1,2 +1,6 @@
-package com.davidsoft.utils;public class StringEscapeDecoder {
+package com.davidsoft.utils;
+
+public interface StringEscapeDecoder {
+
+    String decode(String src);
 }

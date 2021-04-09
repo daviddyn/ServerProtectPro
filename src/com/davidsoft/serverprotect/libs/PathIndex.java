@@ -65,30 +65,6 @@ public final class PathIndex<E> {
         }
     }
 
-    /*
-    private static <E> QueryResult<E> getInner(PathNode<E> current, HttpPath path, int pathPos) {
-        if (pathPos == path.patternCount()) {
-            if (current.data == null) {
-                return null;
-            }
-            return new QueryResult<>(current.data, true, path);
-        }
-        if (current.children != null) {
-            PathNode<E> child = current.children.get(path.patternAt(pathPos));
-            if (child != null) {
-                QueryResult<E> result = getInner(child, path, pathPos + 1);
-                if (result != null) {
-                    return result;
-                }
-            }
-        }
-        if (current.data == null) {
-            return null;
-        }
-        return new QueryResult<>(current.data, false, path.subPath(0, pathPos));
-    }
-    */
-
     public QueryResult<E> get(HttpPath path) {
         if (path.isRoot()) {
             if (root.data == null) {

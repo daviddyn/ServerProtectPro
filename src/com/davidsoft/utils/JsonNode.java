@@ -1,8 +1,6 @@
 package com.davidsoft.utils;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.*;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -11,16 +9,19 @@ import java.util.Map;
 
 public final class JsonNode {
 
-    private static final int TYPE_UNKNOWN = -1;
     public static final int TYPE_PLAIN = 0;
     public static final int TYPE_OBJECT = 1;
     public static final int TYPE_ARRAY = 2;
 
     private final int type;
-    private final boolean simple;
     private final LinkedHashMap<String, JsonNode> fields;
     private final JsonNode[] items;
-    private final String value;
+    private String value;
+    private boolean simple;
+
+    public static JsonNode createEmptyObject() {
+        return new JsonNode(new LinkedHashMap<>());
+    }
 
     public JsonNode(Map<String, JsonNode> fields) {
         this.type = TYPE_OBJECT;
@@ -84,40 +85,57 @@ public final class JsonNode {
         return simple;
     }
 
-    public void setField(String fieldName, JsonNode value) {
-        fields.put(fieldName, value);
-    }
-
     public JsonNode getField(String fieldName) {
-        if (fields == null) {
-            return null;
+        if (type == TYPE_OBJECT) {
+            return fields.get(fieldName);
         }
-        return fields.get(fieldName);
+        throw new IllegalStateException("此Json节点不是对象。");
     }
 
-    public JsonNode removeField(String fieldName) {
-        if (fields == null) {
-            return null;
+    public void setField(String fieldName, Object value) {
+        if (type == TYPE_OBJECT) {
+            fields.put(fieldName, valueOf(value));
+            return;
         }
-        return fields.remove(fieldName);
+        throw new IllegalStateException("此Json节点不是对象。");
     }
 
     public int getLength() {
-        if (items == null) {
-            return 0;
+        if (type == TYPE_ARRAY) {
+            return items.length;
         }
-        return items.length;
+        throw new IllegalStateException("此Json节点不是数组。");
     }
 
     public JsonNode getItem(int position) {
-        if (items == null) {
-            return null;
+        if (type == TYPE_ARRAY) {
+            return items[position];
         }
-        return items[position];
+        throw new IllegalStateException("此Json节点不是数组。");
+    }
+
+    public void setItem(int position, JsonNode value) {
+        if (type == TYPE_ARRAY) {
+            items[position] = value;
+            return;
+        }
+        throw new IllegalStateException("此Json节点不是数组。");
     }
 
     public String getValue() {
-        return value;
+        if (type == TYPE_PLAIN) {
+            return value;
+        }
+        throw new IllegalStateException("此Json节点不是数值。");
+    }
+
+    public void setValue(String value, boolean simple) {
+        if (type == TYPE_PLAIN) {
+            this.value = value;
+            this.simple = simple;
+            return;
+        }
+        throw new IllegalStateException("此Json节点不是数值。");
     }
 
     //与Java对象互转
@@ -126,11 +144,11 @@ public final class JsonNode {
         if (o == null) {
             return new JsonNode("null", true);
         }
+        Class<?> c = o.getClass();
         if (o instanceof JsonNode) {
             return (JsonNode) o;
         }
-        Class<?> c = o.getClass();
-        if (c.isArray()) {
+        else if (c.isArray()) {
             JsonNode[] nodes = new JsonNode[Array.getLength(o)];
             for (int i = 0; i < nodes.length; i++) {
                 nodes[i] = valueOf(Array.get(o, i));
@@ -192,105 +210,105 @@ public final class JsonNode {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    public <T> T toObject(Class<T> destClass) {
-        if (destClass.isArray()) {
-            if (isNull()) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static <T> T toObject(JsonNode jsonNode, Class<T> destClass) {
+        if (jsonNode == null) {
+            return null;
+        }
+        if (destClass.equals(JsonNode.class)) {
+            return (T) jsonNode;
+        }
+        else if (destClass.isArray()) {
+            if (jsonNode.isNull()) {
                 return null;
             }
-            if (!isArray()) {
+            if (!jsonNode.isArray()) {
                 throw new IllegalStateException("jsonNode was not an array.");
             }
-            int arrayLength = items.length;
-            Class<?> c = destClass.componentType();
+            int arrayLength = jsonNode.getLength();
+            Class<?> c = destClass.getComponentType();
             Object array = Array.newInstance(c, arrayLength);
             for (int i = 0; i < arrayLength; i++) {
-                Array.set(array, i, items[i].toObject(c));
+                Array.set(array, i, toObject(jsonNode.items[i], c));
             }
             return (T) array;
         }
         else if (destClass.isPrimitive()) {
-            if (isNull()) {
+            if (jsonNode.isNull()) {
                 throw new IllegalStateException("jsonNode was null which cannot assign to a primitive type. Consider using wrapped type to receive this value.");
             }
-            if (!isPlain()) {
+            if (!jsonNode.isPlain()) {
                 throw new IllegalStateException("jsonNode was not an plain value.");
             }
             switch (destClass.getName()){
                 case "boolean":
-                    return (T) Boolean.valueOf(value);
+                    return (T) Boolean.valueOf(jsonNode.value);
                 case "byte":
-                    try {
-                        return (T) Byte.valueOf(value);
-                    }
-                    catch (NumberFormatException e) {
-                        throw new IllegalStateException("jsonNode was '" + value + "' which cannot assign to a byte.");
-                    }
+                    return (T) Byte.valueOf(jsonNode.value);
                 case "char":
-                    if (value.length() == 0) {
+                    if (jsonNode.value.length() == 0) {
                         throw new IllegalArgumentException("jsonNode was not refer to a char.");
                     }
-                    return (T) Character.valueOf(value.charAt(0));
+                    return (T) Character.valueOf(jsonNode.value.charAt(0));
                 case "short":
-                    try {
-                        return (T) Short.valueOf(value);
-                    }
-                    catch (NumberFormatException e) {
-                        throw new IllegalStateException("jsonNode was '" + value + "' which cannot assign to a short.");
-                    }
+                    return (T) Short.valueOf(jsonNode.value);
                 case "int":
-                    try {
-                        return (T) Integer.valueOf(value);
-                    }
-                    catch (NumberFormatException e) {
-                        throw new IllegalStateException("jsonNode was '" + value + "' which cannot assign to a int.");
-                    }
+                    return (T) Integer.valueOf(jsonNode.value);
                 case "long":
-                    try {
-                        return (T) Long.valueOf(value);
-                    }
-                    catch (NumberFormatException e) {
-                        throw new IllegalStateException("jsonNode was '" + value + "' which cannot assign to a long.");
-                    }
+                    return (T) Long.valueOf(jsonNode.value);
                 case "float":
-                    try {
-                        return (T) Float.valueOf(value);
-                    }
-                    catch (NumberFormatException e) {
-                        throw new IllegalStateException("jsonNode was '" + value + "' which cannot assign to a float.");
-                    }
+                    return (T) Float.valueOf(jsonNode.value);
                 case "double":
-                    try {
-                        return (T) Double.valueOf(value);
-                    }
-                    catch (NumberFormatException e) {
-                        throw new IllegalStateException("jsonNode was '" + value + "' which cannot assign to a double.");
-                    }
+                    return (T) Double.valueOf(jsonNode.value);
                 default:
                     //unreachable
                     return null;
             }
         }
-        else if (destClass.equals(JsonNode.class)) {
-            return (T) this;
+        else if (destClass.isAssignableFrom(Boolean.class)) {
+            return (T) Boolean.valueOf(jsonNode.value);
+        }
+        else if (destClass.isAssignableFrom(Byte.class)) {
+            return (T) Byte.valueOf(jsonNode.value);
+        }
+        else if (destClass.isAssignableFrom(Character.class)) {
+            if (jsonNode.value.length() == 0) {
+                throw new IllegalArgumentException("jsonNode was not refer to a Character.");
+            }
+            return (T) Character.valueOf(jsonNode.value.charAt(0));
+        }
+        else if (destClass.isAssignableFrom(Short.class)) {
+            return (T) Short.valueOf(jsonNode.value);
+        }
+        else if (destClass.isAssignableFrom(Integer.class)) {
+            return (T) Integer.valueOf(jsonNode.value);
+        }
+        else if (destClass.isAssignableFrom(Long.class)) {
+            return (T) Long.valueOf(jsonNode.value);
+        }
+        else if (destClass.isAssignableFrom(Float.class)) {
+            return (T) Float.valueOf(jsonNode.value);
+        }
+        else if (destClass.isAssignableFrom(Double.class)) {
+            return (T) Double.valueOf(jsonNode.value);
         }
         else if (destClass.isAssignableFrom(String.class)) {
-            if (isNull()) {
+            if (jsonNode.isNull()) {
                 return null;
             }
-            if (isPlain()) {
-                return (T) value;
+            if (!jsonNode.isPlain()) {
+                throw new IllegalStateException("jsonNode was not an plain value.");
             }
-            return (T) toString();
+            return (T) jsonNode.value;
         }
         else if (Collection.class.isAssignableFrom(destClass)) {
-            if (isNull()) {
+            if (jsonNode.isNull()) {
                 return null;
             }
-            if (!isArray()) {
+            if (!jsonNode.isArray()) {
                 throw new IllegalStateException("jsonNode was not an array.");
             }
-            int arrayLength = getLength();
+            int arrayLength = jsonNode.getLength();
             Collection collection;
             try {
                 collection = (Collection) destClass.getConstructor().newInstance();
@@ -298,16 +316,16 @@ public final class JsonNode {
                 throw new IllegalStateException(e);
             }
             for (int i = 0; i < arrayLength; i++) {
-                collection.add(items[i].toObject(Object.class));
+                collection.add(toObject(jsonNode.items[i], Object.class));
             }
             return (T) collection;
         }
         else {
-            if (isNull()) {
+            if (jsonNode.isNull()) {
                 return null;
             }
-            if (!isObject()) {
-                throw new IllegalStateException("jsonNode was not an object value.");
+            if (!jsonNode.isObject()) {
+                throw new IllegalStateException("jsonNode was not an object value: " + jsonNode.toString());
             }
             //按Field填充
             T obj;
@@ -317,10 +335,10 @@ public final class JsonNode {
                 throw new IllegalStateException(e);
             }
             for (Field field : destClass.getFields()) {
-                JsonNode value = fields.get(field.getName());
+                JsonNode value = jsonNode.fields.get(field.getName());
                 if (value != null) {
                     try {
-                        field.set(obj, value.toObject(field.getType()));
+                        field.set(obj, toObject(value, field.getType()));
                     } catch (IllegalAccessException e) {
                         throw new IllegalStateException(e);
                     }

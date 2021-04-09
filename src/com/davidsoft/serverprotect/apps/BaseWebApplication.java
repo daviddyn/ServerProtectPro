@@ -2,7 +2,7 @@ package com.davidsoft.serverprotect.apps;
 
 import com.davidsoft.collections.ReadOnlyMap;
 import com.davidsoft.collections.ReadOnlySet;
-import com.davidsoft.serverprotect.http.*;
+import com.davidsoft.http.*;
 import com.davidsoft.serverprotect.libs.HttpPath;
 import com.davidsoft.serverprotect.libs.IpIndex;
 
@@ -56,46 +56,34 @@ public class BaseWebApplication implements WebApplication {
     public void onDestroy() {}
 
     @Override
-    public final HttpResponseSender onClientRequest(HttpRequestReceiver requestReceiver, String clientIp, int serverPort, boolean ssl) {
+    public final HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, String clientIp, int serverPort, boolean ssl) {
         //1. ip白名单控制
         if (!ipWhiteList.isEmpty() && !ipWhiteList.queryContains(clientIp)) {
             return null;
         }
         //2. Host过滤
-        String host = requestReceiver.getRequestInfo().headers.getFieldValue("Host");
+        String host = requestInfo.headers.getFieldValue("Host");
         if (host == null) {
             return null;
         }
         else {
-            int port;
-            int findPos = host.indexOf(":");
-            if (findPos == -1) {
-                port = ssl ? 443 : 80;
-                findPos = host.length();
-            }
-            else {
-                try {
-                    port = Integer.parseInt(host.substring(findPos + 1));
-                }
-                catch (NumberFormatException e) {
-                    return null;
-                }
-            }
-            if (port != serverPort || (!allowDomains.isEmpty() && !allowDomains.contains(host.substring(0, findPos)))) {
+            String domain = com.davidsoft.http.Utils.getHostFromDomain(host);
+            int port = com.davidsoft.http.Utils.getPortFromDomain(host, ssl);
+            if (port != serverPort || (!allowDomains.isEmpty() && !allowDomains.contains(domain))) {
                 return null;
             }
         }
         //3. 判断是不是访问网站图标
-        if (requestReceiver.getRequestInfo().path.equals(FAVICON_PATH)) {
+        if (requestInfo.path.equals(FAVICON_PATH)) {
             return onGetFavicon(clientIp);
         }
         //4. 解析相对路径
         HttpPath requestRelativePath;
         if (workingRootPath.isRoot()) {
-            requestRelativePath = requestReceiver.getRequestInfo().path;
+            requestRelativePath = requestInfo.path;
         }
         else {
-            requestRelativePath = requestReceiver.getRequestInfo().path.subPath(workingRootPath.patternCount());
+            requestRelativePath = requestInfo.path.subPath(workingRootPath.patternCount());
         }
         //5. 执行+路由控制
         HashSet<Integer> routed = new HashSet<>();
@@ -103,7 +91,7 @@ public class BaseWebApplication implements WebApplication {
         String savedResponseDescription = null;
         HttpResponseSender sender;
         while (true) {
-            sender = onClientRequest(requestReceiver, clientIp, requestRelativePath);
+            sender = onClientRequest(requestInfo, requestContent, clientIp, requestRelativePath);
             if (sender == null) {
                 return null;
             }
@@ -126,7 +114,7 @@ public class BaseWebApplication implements WebApplication {
         return sender;
     }
 
-    protected HttpResponseSender onClientRequest(HttpRequestReceiver requestReceiver, String ip, HttpPath requestRelativePath) {
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, String ip, HttpPath requestRelativePath) {
         StringBuilder webPageBuilder = new StringBuilder();
         webPageBuilder.append("<!DOCTYPE html><html><head><title>David Soft Server Protect Pro</title><body><h1>欢迎使用 David Soft Server Protect Pro</h1><hr><p>此页面是&nbsp;BaseWebApplication.onClientRequest(HttpRequestReceiver, String, HttpPath)&nbsp;的缺省实现，请重写此方法来实现自己的业务。</p><p>");
         webPageBuilder.append("App名称：").append(Utils.escapeHtml(name)).append("<br>");
@@ -158,7 +146,7 @@ public class BaseWebApplication implements WebApplication {
         webPageBuilder.append("请求ip：").append(ip).append("<br>");
         webPageBuilder.append("App工作根网址：").append(Utils.escapeHtml(workingRootPath.toString())).append("<br>");
         webPageBuilder.append("相对请求网址：").append(Utils.escapeHtml(requestRelativePath.toString())).append("</p><p>");
-        webPageBuilder.append(Utils.escapeHtml(requestReceiver.getRequestInfo().toString()));
+        webPageBuilder.append(Utils.escapeHtml(requestInfo.toString()));
         webPageBuilder.append("</p>");
         return new HttpResponseSender(
                 new HttpResponseInfo(200),

@@ -1,5 +1,7 @@
 package com.davidsoft.serverprotect.libs;
 
+import com.davidsoft.http.UrlCodec;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;

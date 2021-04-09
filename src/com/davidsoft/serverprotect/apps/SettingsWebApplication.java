@@ -6,7 +6,7 @@ import com.davidsoft.serverprotect.components.Log;
 import com.davidsoft.serverprotect.components.Program;
 import com.davidsoft.serverprotect.components.Settings;
 import com.davidsoft.serverprotect.enties.*;
-import com.davidsoft.serverprotect.http.*;
+import com.davidsoft.http.*;
 import com.davidsoft.serverprotect.libs.HttpPath;
 import com.davidsoft.utils.JsonNode;
 
@@ -184,19 +184,19 @@ public final class SettingsWebApplication extends FileWebApplication {
         return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(200, ret));
     }
 
-    private HttpResponseSender receiveJson(HttpRequestReceiver requestReceiver, JsonNode[] out) {
-        HttpResponseSender response = AppUtils.requireContent(requestReceiver, "application/json");
+    private HttpResponseSender receiveJson(HttpContentReceiver contentReceiver, JsonNode[] out) {
+        HttpResponseSender response = AppUtils.requireContent(contentReceiver, "application/json");
         if (response != null) {
             return response;
         }
-        Charset charset = requestReceiver.getContentCharset();
+        Charset charset = contentReceiver.getContentCharset();
         if (charset == null) {
             charset = StandardCharsets.UTF_8;
         }
         try {
-            out[0] = new HttpContentJsonReceiver(charset).onReceive(requestReceiver.getContentInputStream(), requestReceiver.getContentLength());
-            if (requestReceiver.hasSuspendedHeaders()) {
-                requestReceiver.readSuspendedHeaders();
+            out[0] = new HttpContentJsonDecoder(charset).onDecode(contentReceiver.getContentInputStream(), contentReceiver.getContentLength());
+            if (contentReceiver.hasSuspendedHeaders()) {
+                contentReceiver.receiveSuspendedHeaders();
             }
         }
         catch (ContentTooLargeException e) {
@@ -215,9 +215,9 @@ public final class SettingsWebApplication extends FileWebApplication {
         return null;
     }
 
-    private HttpResponseSender onSetConfig(HttpRequestReceiver requestReceiver) {
+    private HttpResponseSender onSetConfig(HttpContentReceiver contentReceiver) {
         JsonNode[] requestJson = new JsonNode[1];
-        HttpResponseSender response = receiveJson(requestReceiver, requestJson);
+        HttpResponseSender response = receiveJson(contentReceiver, requestJson);
         if (response != null) {
             return response;
         }
@@ -239,7 +239,7 @@ public final class SettingsWebApplication extends FileWebApplication {
         }
         DagNode dagNode;
         try {
-            dagNode = dagJsonNode.toObject(DagNode.class);
+            dagNode = JsonNode.toObject(dagJsonNode, DagNode.class);
         }
         catch (IllegalArgumentException | IllegalStateException e) {
             return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(500, "Json格式不正确"));
@@ -272,9 +272,9 @@ public final class SettingsWebApplication extends FileWebApplication {
         return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(200, "新的配置应用成功，将从下一个连接起生效！"));
     }
 
-    private HttpResponseSender onAddBlackList(HttpRequestReceiver requestReceiver) {
+    private HttpResponseSender onAddBlackList(HttpContentReceiver contentReceiver) {
         JsonNode[] requestJson = new JsonNode[1];
-        HttpResponseSender response = receiveJson(requestReceiver, requestJson);
+        HttpResponseSender response = receiveJson(contentReceiver, requestJson);
         if (response != null) {
             return response;
         }
@@ -324,9 +324,9 @@ public final class SettingsWebApplication extends FileWebApplication {
         return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(200, responseNode));
     }
 
-    private HttpResponseSender onRemoveBlackList(HttpRequestReceiver requestReceiver) {
+    private HttpResponseSender onRemoveBlackList(HttpContentReceiver contentReceiver) {
         JsonNode[] requestJson = new JsonNode[1];
-        HttpResponseSender response = receiveJson(requestReceiver, requestJson);
+        HttpResponseSender response = receiveJson(contentReceiver, requestJson);
         if (response != null) {
             return response;
         }
@@ -348,7 +348,8 @@ public final class SettingsWebApplication extends FileWebApplication {
         return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(200, "已允许 " + ip + " 的访问。从下一个连接起生效。"));
     }
 
-    protected HttpResponseSender onClientRequest(HttpRequestReceiver requestReceiver, String ip, HttpPath requestRelativePath) {
+    @Override
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, String ip, HttpPath requestRelativePath) {
         switch (requestRelativePath.toString()) {
             case "/get":
                 //TODO: 将下面注释的代码取消注释使其仅支持POST请求。
@@ -359,16 +360,16 @@ public final class SettingsWebApplication extends FileWebApplication {
                 */
                 return onGetConfig();
             case "/set":
-                if (!"POST".equals(requestReceiver.getRequestInfo().method)) {
+                if (!"POST".equals(requestInfo.method)) {
                     return new HttpResponseSender(new HttpResponseInfo(405), null);
                 }
-                return onSetConfig(requestReceiver);
+                return onSetConfig(requestContent);
             case "/addBlackList":
-                return onAddBlackList(requestReceiver);
+                return onAddBlackList(requestContent);
             case "/removeBlackList":
-                return onRemoveBlackList(requestReceiver);
+                return onRemoveBlackList(requestContent);
             default:
-                return super.onClientRequest(requestReceiver, ip, requestRelativePath);
+                return super.onClientRequest(requestInfo, requestContent, ip, requestRelativePath);
         }
     }
 }
