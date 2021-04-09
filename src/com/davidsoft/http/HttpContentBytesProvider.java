@@ -28,7 +28,7 @@ public class HttpContentBytesProvider implements HttpContentProvider {
     }
 
     @Override
-    public int getContentLength() {
+    public long getContentLength() {
         return data.length;
     }
 

@@ -25,7 +25,7 @@ public class HttpContentJsonProvider implements HttpContentProvider {
     }
 
     @Override
-    public int getContentLength() {
+    public long getContentLength() {
         return stringProvider.getContentLength();
     }
 

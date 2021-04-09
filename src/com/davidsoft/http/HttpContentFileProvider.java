@@ -40,7 +40,7 @@ public class HttpContentFileProvider implements HttpContentProvider {
     }
 
     @Override
-    public int getContentLength() {
+    public long getContentLength() {
         return contentLength;
     }
 

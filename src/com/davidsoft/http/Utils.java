@@ -111,14 +111,14 @@ public final class Utils {
     public static int getPortFromDomain(String domain, boolean ssl) {
         int findPos = domain.indexOf(':');
         if (findPos == -1) {
-            return ssl ? 80: 443;
+            return ssl ? 443: 80;
         }
         else {
             try {
                 return Integer.parseInt(domain.substring(findPos + 1));
             }
             catch (NumberFormatException e) {
-                return ssl ? 80: 443;
+                return ssl ? 443: 80;
             }
         }
     }

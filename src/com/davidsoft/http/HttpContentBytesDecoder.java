@@ -3,10 +3,10 @@ package com.davidsoft.serverprotect.http;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class HttpContentBytesReceiver implements HttpContentReceiver<byte[]> {
+public class HttpContentBytesDecoder implements HttpContentDecoder<byte[]> {
 
     @Override
-    public byte[] onReceive(InputStream in, long contentLength) throws UnacceptableException, IOException {
+    public byte[] onDecode(InputStream in, long contentLength) throws UnacceptableException, IOException {
         if (contentLength == -1) {
             try {
                 return in.readAllBytes();

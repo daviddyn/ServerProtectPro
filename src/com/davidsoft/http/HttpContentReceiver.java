@@ -56,7 +56,7 @@ public class HttpContentReceiver {
      *
      * @return {@link #ANALYSE_SUCCESS}、{@link #ANALYSE_UNSUPPORTED_CONTENT_ENCODING}、{@link #ANALYSE_CONTENT_LENGTH_REQUIRED}、{@link #ANALYSE_MALFORMED_CONTENT_LENGTH}四者之一。
      */
-    int analyseContent() {
+    public int analyseContent() {
         String value = httpHeaders.getFieldValue("Content-Type");
         if (value != null) {
             int findPos = value.indexOf(";");

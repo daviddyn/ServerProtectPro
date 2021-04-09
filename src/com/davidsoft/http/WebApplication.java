@@ -42,11 +42,12 @@ public interface WebApplication {
     /**
      * 当有客户浏览器请求时调用。
      *
-     * @param requestReceiver 在这个对象中获取请求的信息，包括请求方法、url、请求头、content等
+     * @param requestInfo 在这个对象中获取请求信息，包括请求方法、url、请求头等
+     * @param requestContent 在这个对象中获取请求的Content，对于不应有Content的请求(如GET请求)，此参数为null。
      * @param clientIp 客户端的ip
      * @param serverPort 当前服务端的端口号
      * @param ssl false: http连接; true: https连接。
      * @return 一个HttpResponseSender对象，用于告知外层向客户浏览器返回的内容。如果返回null，则外层会直接断开连接。
      */
-    HttpResponseSender onClientRequest(HttpRequestReceiver requestReceiver, String clientIp, int serverPort, boolean ssl);
+    HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, String clientIp, int serverPort, boolean ssl);
 }
