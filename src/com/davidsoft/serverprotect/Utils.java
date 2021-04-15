@@ -130,6 +130,16 @@ public final class Utils {
         return true;
     }
 
+    public static boolean isStringEmpty(String src) {
+        return src == null || src.isEmpty();
+    }
+
+    public static String toNonNullString(String src) {
+        return src == null ? "" : src;
+    }
+
+    /*
+
     public static int encodeIp(String ip) {
         int number1, number2, number3, number4;
         int findEnd = ip.indexOf('.');
@@ -184,14 +194,6 @@ public final class Utils {
         sub = ip & 0xFF;
         String pattern4 = (sub == 255 ? "*" : String.valueOf(sub));
         return pattern1 + "." + pattern2 + "." + pattern3 + "." + pattern4;
-    }
-
-    public static boolean isStringEmpty(String src) {
-        return src == null || src.isEmpty();
-    }
-
-    public static String toNonNullString(String src) {
-        return src == null ? "" : src;
     }
 
     public static boolean checkIp(String ip) {
@@ -259,4 +261,6 @@ public final class Utils {
         }
         return true;
     }
+
+     */
 }

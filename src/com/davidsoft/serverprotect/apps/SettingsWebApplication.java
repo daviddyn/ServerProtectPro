@@ -1,12 +1,12 @@
 package com.davidsoft.serverprotect.apps;
 
-import com.davidsoft.serverprotect.Utils;
+import com.davidsoft.net.RegexIP;
+import com.davidsoft.net.http.*;
 import com.davidsoft.serverprotect.components.BlackListManager;
 import com.davidsoft.serverprotect.components.Log;
 import com.davidsoft.serverprotect.components.Program;
 import com.davidsoft.serverprotect.components.Settings;
 import com.davidsoft.serverprotect.enties.*;
-import com.davidsoft.http.*;
 import com.davidsoft.serverprotect.libs.HttpPath;
 import com.davidsoft.utils.JsonNode;
 
@@ -165,9 +165,9 @@ public final class SettingsWebApplication extends FileWebApplication {
         BlackListManager.freeze();
         JsonNode[] blockJsonNodes = new JsonNode[BlackListManager.size()];
         int i = 0;
-        for (Map.Entry<Integer, long[]> entry : BlackListManager.entries()) {
+        for (Map.Entry<Long, long[]> entry : BlackListManager.entries()) {
             fields = new LinkedHashMap<>(2);
-            fields.put("ip", new JsonNode(Utils.decodeIp(entry.getKey()), false));
+            fields.put("ip", new JsonNode(RegexIP.toString(entry.getKey()), false));
             fields.put("expires", new JsonNode(BlackListManager.simpleDateFormat.format(entry.getValue()[0]), false));
             blockJsonNodes[i++] = new JsonNode(fields);
         }
@@ -288,8 +288,10 @@ public final class SettingsWebApplication extends FileWebApplication {
         if (node == null || node.isNull() || !node.isPlain()) {
             return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(500, "Json格式不正确"));
         }
-        String ip = node.getValue();
-        if (!Utils.checkIpWithRegex(ip)) {
+        long regexIp;
+        try {
+            regexIp = RegexIP.parse(node.getValue());
+        } catch (ParseException e) {
             return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(500, "无效ip字段值"));
         }
         node = requestJson[0].getField("expires");
@@ -303,23 +305,23 @@ public final class SettingsWebApplication extends FileWebApplication {
         } catch (ParseException e) {
             return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(500, "无效expires字段值"));
         }
-        long result = Program.addBlackListSync(ip, expires);
+        long result = Program.addBlackListSync(regexIp, expires);
         AddBlackListResponseNode responseNode = new AddBlackListResponseNode();
-        responseNode.ip = ip;
+        responseNode.ip = RegexIP.toString(regexIp);
         if (result == -1) {
             responseNode.status = "added";
             responseNode.expires = simpleDateFormat.format(expires);
-            responseNode.message = "已禁止 " + ip + " 的访问，且将在 " + responseNode.expires + " 解除。从下一个连接起开始生效。";
+            responseNode.message = "已禁止 " + responseNode.ip + " 的访问，且将在 " + responseNode.expires + " 解除。从下一个连接起开始生效。";
         }
         else if (result == 0) {
             responseNode.status = "updated";
             responseNode.expires = simpleDateFormat.format(expires);
-            responseNode.message = ip + " 的解除时间已延长至 " + responseNode.expires + " 。从下一个连接起开始生效。";
+            responseNode.message = responseNode.ip + " 的解除时间已延长至 " + responseNode.expires + " 。从下一个连接起开始生效。";
         }
         else {
             responseNode.status = "none";
             responseNode.expires = simpleDateFormat.format(expires);
-            responseNode.message = ip + " 已经被禁止访问，且将在 " + responseNode.expires + " ，因此添加没有生效。";
+            responseNode.message = responseNode.ip + " 已经被禁止访问，且将在 " + responseNode.expires + " ，因此添加没有生效。";
         }
         return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(200, responseNode));
     }
@@ -340,24 +342,23 @@ public final class SettingsWebApplication extends FileWebApplication {
         if (node == null || node.isNull() || !node.isPlain()) {
             return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(500, "Json格式不正确"));
         }
-        String ip = node.getValue();
-        if (!Utils.checkIpWithRegex(ip)) {
+        long regexIp;
+        try {
+            regexIp = RegexIP.parse(node.getValue());
+        } catch (ParseException e) {
             return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(500, "无效ip字段值"));
         }
-        Program.removeBlackList(ip);
-        return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(200, "已允许 " + ip + " 的访问。从下一个连接起生效。"));
+        Program.removeBlackList(regexIp);
+        return new HttpResponseSender(new HttpResponseInfo(200), new HttpContentLjqJsonProvider(200, "已允许 " + RegexIP.toString(regexIp) + " 的访问。从下一个连接起生效。"));
     }
 
     @Override
-    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, String ip, HttpPath requestRelativePath) {
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, HttpPath requestRelativePath) {
         switch (requestRelativePath.toString()) {
             case "/get":
-                //TODO: 将下面注释的代码取消注释使其仅支持POST请求。
-                /*
-                if (!"POST".equals(requestReceiver.getRequestInfo().method)) {
+                if (!"POST".equals(requestInfo.method)) {
                     return new HttpResponseSender(new HttpResponseInfo(405), null);
                 }
-                */
                 return onGetConfig();
             case "/set":
                 if (!"POST".equals(requestInfo.method)) {
@@ -369,7 +370,7 @@ public final class SettingsWebApplication extends FileWebApplication {
             case "/removeBlackList":
                 return onRemoveBlackList(requestContent);
             default:
-                return super.onClientRequest(requestInfo, requestContent, ip, requestRelativePath);
+                return super.onClientRequest(requestInfo, requestContent, clientIp, requestRelativePath);
         }
     }
 }

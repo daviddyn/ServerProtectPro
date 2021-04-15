@@ -1,15 +1,15 @@
 package com.davidsoft.serverprotect.rulers;
 
 import com.davidsoft.serverprotect.components.TraceManager;
-import com.davidsoft.http.HttpRequestInfo;
-import com.davidsoft.http.HttpResponseInfo;
+import com.davidsoft.net.http.HttpRequestInfo;
+import com.davidsoft.net.http.HttpResponseInfo;
 
 public class RedirectRuler implements Ruler {
 
     private boolean doSomething;
 
     @Override
-    public boolean judge(String clientIp, HttpRequestInfo requestInfo) {
+    public boolean judge(int clientIp, HttpRequestInfo requestInfo) {
         String traceId = requestInfo.headers.cookies.get("traceId");
         if (traceId == null) {
             doSomething = true;

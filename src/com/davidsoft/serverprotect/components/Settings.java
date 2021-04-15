@@ -2,15 +2,17 @@ package com.davidsoft.serverprotect.components;
 
 import com.davidsoft.collections.ReadOnlyMap;
 import com.davidsoft.collections.ReadOnlySet;
+import com.davidsoft.net.RegexIP;
 import com.davidsoft.serverprotect.Utils;
 import com.davidsoft.serverprotect.enties.*;
 import com.davidsoft.serverprotect.libs.HttpPath;
-import com.davidsoft.serverprotect.libs.IpIndex;
+import com.davidsoft.net.RegexIpIndex;
 import com.davidsoft.serverprotect.libs.PathIndex;
 import com.davidsoft.utils.JsonNode;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -49,7 +51,7 @@ public final class Settings {
     public static final class WebApplication {
         public final String name;
         public final String type;
-        public final IpIndex<Void> whiteList;
+        public final RegexIpIndex<Void> whiteList;
         public final ReadOnlySet<String> allowDomains;
         public final ReadOnlyMap<Integer, String> routers;
         public final String targetDomain;
@@ -57,7 +59,7 @@ public final class Settings {
         public final boolean targetSSL;
         public final boolean forwardIp;
 
-        private WebApplication(String name, String type, IpIndex<Void> whiteList, ReadOnlySet<String> allowDomains, ReadOnlyMap<Integer, String> routers, String targetDomain, int targetPort, boolean targetSSL, boolean forwardIp) {
+        private WebApplication(String name, String type, RegexIpIndex<Void> whiteList, ReadOnlySet<String> allowDomains, ReadOnlyMap<Integer, String> routers, String targetDomain, int targetPort, boolean targetSSL, boolean forwardIp) {
             this.name = name;
             this.type = type;
             this.whiteList = whiteList;
@@ -73,10 +75,14 @@ public final class Settings {
             if (Utils.isStringEmpty(appNode.name)) {
                 throw new ApplyException("apps.name", "字段不能为空");
             }
-            IpIndex<Void> whiteList = new IpIndex<>();
+            RegexIpIndex<Void> whiteList = new RegexIpIndex<>();
             if (appNode.whiteList != null) {
                 for (String item : appNode.whiteList) {
-                    whiteList.put(item, null);
+                    try {
+                        whiteList.put(RegexIP.parse(item), null);
+                    } catch (ParseException e) {
+                        throw new ApplyException("apps.whiteList", "无效ip格式");
+                    }
                 }
             }
             HashMap<Integer, String> routers = new HashMap<>();

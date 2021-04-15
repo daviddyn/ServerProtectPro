@@ -1,12 +1,15 @@
 package com.davidsoft.serverprotect.rulers;
 
-import com.davidsoft.http.HttpRequestInfo;
-import com.davidsoft.http.HttpResponseInfo;
+import com.davidsoft.net.IP;
+import com.davidsoft.net.http.HttpRequestInfo;
+import com.davidsoft.net.http.HttpResponseInfo;
+
+import java.text.ParseException;
 
 public class ForwardRuler implements Ruler {
 
     @Override
-    public boolean judge(String clientIp, HttpRequestInfo requestInfo) {
+    public boolean judge(int clientIp, HttpRequestInfo requestInfo) {
         String forward = requestInfo.headers.getFieldValue("X-Forwarded-For");
         if (forward == null) {
             return true;
@@ -15,7 +18,11 @@ public class ForwardRuler implements Ruler {
         if (findPos == -1) {
             findPos = forward.length();
         }
-        return clientIp.equals(forward.substring(0, findPos).trim());
+        try {
+            return clientIp == IP.parse(forward.substring(0, findPos).trim());
+        } catch (ParseException e) {
+            return false;
+        }
     }
 
     @Override

@@ -1,8 +1,8 @@
 package com.davidsoft.serverprotect.apps;
 
-import com.davidsoft.http.HttpContentReceiver;
-import com.davidsoft.http.HttpResponseInfo;
-import com.davidsoft.http.HttpResponseSender;
+import com.davidsoft.net.http.HttpContentReceiver;
+import com.davidsoft.net.http.HttpResponseInfo;
+import com.davidsoft.net.http.HttpResponseSender;
 
 public class AppUtils {
 

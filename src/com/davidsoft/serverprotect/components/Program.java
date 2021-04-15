@@ -23,6 +23,7 @@ public final class Program {
         private int what;
         private int intArg1;
         private int intArg2;
+        private long longArg;
         private long resultArg;
         private Object objArg1;
         private Object objArg2;
@@ -75,20 +76,20 @@ public final class Program {
         messageQueue.offer(messageItem);
     }
 
-    public static void addBlackList(String ipWithRegex, long expires) {
+    public static void addBlackList(long regexIp, long expires) {
         MessageItem messageItem = new MessageItem();
         messageItem.what = MESSAGE_ADD_BLACKLIST;
-        messageItem.objArg1 = ipWithRegex;
+        messageItem.longArg = regexIp;
         messageItem.intArg1 = (int) ((expires >> 32) & 0x00000000FFFFFFFFL);
         messageItem.intArg2 = (int) (expires & 0x00000000FFFFFFFFL);
         messageQueue.offer(messageItem);
     }
 
-    public static long addBlackListSync(String ipWithRegex, long expires) {
+    public static long addBlackListSync(long regexIp, long expires) {
         MessageItem messageItem = new MessageItem();
         messageItem.what = MESSAGE_ADD_BLACKLIST_SYNC;
         messageItem.semaphore = new Semaphore(0);
-        messageItem.objArg1 = ipWithRegex;
+        messageItem.longArg = regexIp;
         messageItem.intArg1 = (int) ((expires >> 32) & 0x00000000FFFFFFFFL);
         messageItem.intArg2 = (int) (expires & 0x00000000FFFFFFFFL);
         messageQueue.offer(messageItem);
@@ -100,10 +101,10 @@ public final class Program {
         return messageItem.resultArg;
     }
 
-    public static void removeBlackList(String ipWithRegex) {
+    public static void removeBlackList(long regexIp) {
         MessageItem messageItem = new MessageItem();
         messageItem.what = MESSAGE_REMOVE_BLACKLIST;
-        messageItem.objArg1 = ipWithRegex;
+        messageItem.longArg = regexIp;
         messageQueue.offer(messageItem);
     }
 
@@ -185,14 +186,14 @@ public final class Program {
                     BlackListManager.reloadBlackList();
                     continue;
                 case MESSAGE_ADD_BLACKLIST:
-                    BlackListManager.addBlackList((String)messageItem.objArg1, (((long)messageItem.intArg1) << 32) | messageItem.intArg2);
+                    BlackListManager.addBlackList(messageItem.longArg, (((long)messageItem.intArg1) << 32) | messageItem.intArg2);
                     continue;
                 case MESSAGE_ADD_BLACKLIST_SYNC:
-                    messageItem.resultArg = BlackListManager.addBlackList((String)messageItem.objArg1, (((long)messageItem.intArg1) << 32) | messageItem.intArg2);
+                    messageItem.resultArg = BlackListManager.addBlackList(messageItem.longArg, (((long)messageItem.intArg1) << 32) | messageItem.intArg2);
                     messageItem.semaphore.release();
                     continue;
                 case MESSAGE_REMOVE_BLACKLIST:
-                    BlackListManager.removeBlackList((String)messageItem.objArg1);
+                    BlackListManager.removeBlackList(messageItem.longArg);
                     continue;
                 case MESSAGE_CLEAN_BLACKLIST:
                     BlackListManager.cleanBlackList();

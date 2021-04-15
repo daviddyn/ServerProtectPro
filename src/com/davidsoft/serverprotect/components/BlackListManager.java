@@ -1,7 +1,8 @@
 package com.davidsoft.serverprotect.components;
 
+import com.davidsoft.net.RegexIP;
 import com.davidsoft.serverprotect.Utils;
-import com.davidsoft.serverprotect.libs.IpIndex;
+import com.davidsoft.net.RegexIpIndex;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -21,7 +22,7 @@ public final class BlackListManager {
     private static final File FILE_BLOCKS = new File("configs" + File.separator + "blocks");
 
     private static final ReentrantReadWriteLock memLock = new ReentrantReadWriteLock(true);
-    private static final IpIndex<long[]> blackList = new IpIndex<>();
+    private static final RegexIpIndex<long[]> blackList = new RegexIpIndex<>();
     public static final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     static void initBlackList() {
@@ -48,10 +49,14 @@ public final class BlackListManager {
         long now = System.currentTimeMillis();
         while (scanner.hasNext()) {
             src = scanner.nextLine().trim();
+            listCount++;
             if (src.startsWith("-")) {
-                blackList.remove(src.substring(1).trim());
+                try {
+                    blackList.removeExactly(RegexIP.parse(src.substring(1).trim()));
+                } catch (ParseException e) {
+                    Log.logMain(Log.LOG_WARNING, LOG_CATEGORY, FILE_BLOCKS.getAbsolutePath() + " 中发现无效的ip格式，已忽略。");
+                }
                 invalidCount++;
-                listCount++;
             }
             else {
                 if (src.startsWith("+")) {
@@ -63,29 +68,32 @@ public final class BlackListManager {
                     invalidCount++;
                     continue;
                 }
-                String ip = src.substring(0, findPos);
-                if (!Utils.checkIpWithRegex(ip)) {
-                    Log.logMain(Log.LOG_WARNING, LOG_CATEGORY, FILE_BLOCKS.getAbsolutePath() + " 中发现无效的ip格式，已忽略。");
-                }
-                long parsed;
+                long parsedIp;
                 try {
-                    parsed = simpleDateFormat.parse(src.substring(findPos + 1).trim()).getTime();
+                    parsedIp = RegexIP.parse(src.substring(0, findPos));
+                } catch (ParseException e) {
+                    Log.logMain(Log.LOG_WARNING, LOG_CATEGORY, FILE_BLOCKS.getAbsolutePath() + " 中发现无效的ip格式，已忽略。");
+                    invalidCount++;
+                    continue;
+                }
+                long parsedTime;
+                try {
+                    parsedTime = simpleDateFormat.parse(src.substring(findPos + 1).trim()).getTime();
                 } catch (ParseException e) {
                     Log.logMain(Log.LOG_WARNING, LOG_CATEGORY, FILE_BLOCKS.getAbsolutePath() + " 中发现无效的时间格式，已忽略。");
                     invalidCount++;
                     continue;
                 }
-                listCount++;
-                if (parsed <= now) {
+                if (parsedTime <= now) {
                     invalidCount++;
                     continue;
                 }
-                long[] expires = blackList.get(ip);
+                long[] expires = blackList.getExactly(parsedIp);
                 if (expires == null) {
-                    blackList.put(ip, new long[]{parsed});
+                    blackList.put(parsedIp, new long[]{parsedTime});
                 }
-                else if (expires[0] < parsed) {
-                    expires[0] = parsed;
+                else if (expires[0] < parsedTime) {
+                    expires[0] = parsedTime;
                     invalidCount++;
                 }
             }
@@ -105,8 +113,8 @@ public final class BlackListManager {
             Log.logMain(Log.LOG_WARNING, LOG_CATEGORY, "无法写入 " + FILE_BLOCKS.getAbsolutePath() + "，无法保存新的黑名单！");
             return;
         }
-        for (Map.Entry<Integer, long[]> entry : blackList.entrySet()) {
-            out.print(Utils.decodeIpWithRegex(entry.getKey()));
+        for (Map.Entry<Long, long[]> entry : blackList.entrySet()) {
+            out.print(RegexIP.toString(entry.getKey()));
             out.print("\t");
             out.println(simpleDateFormat.format(entry.getValue()[0]));
         }
@@ -120,14 +128,14 @@ public final class BlackListManager {
     }
 
     //返回：0-更新, -1-新建, 其他-未改变
-    static long addBlackList(String regexIp, long expires) {
+    static long addBlackList(long regexIp, long expires) {
         try {
             memLock.writeLock().lockInterruptibly();
         } catch (InterruptedException e) {
             return 0;
         }
         long result;
-        long[] queriedExpires = blackList.get(regexIp);
+        long[] queriedExpires = blackList.getExactly(regexIp);
         if (queriedExpires == null) {
             blackList.put(regexIp, new long[]{expires});
             result = -1;
@@ -158,13 +166,13 @@ public final class BlackListManager {
         return result;
     }
 
-    static void removeBlackList(String regexIp) {
+    static void removeBlackList(long regexIp) {
         try {
             memLock.writeLock().lockInterruptibly();
         } catch (InterruptedException e) {
             return;
         }
-        if (!blackList.remove(regexIp)) {
+        if (!blackList.removeExactly(regexIp)) {
             return;
         }
         Log.logMain(Log.LOG_INFO, LOG_CATEGORY, "已允许 " + regexIp + " 的访问。从下一个连接起开始生效。");
@@ -183,9 +191,9 @@ public final class BlackListManager {
     }
 
     //此函数会在其他线程中调用
-    public static boolean inBlackList(String exactIp) {
+    public static boolean inBlackList(int ip) {
         memLock.readLock().lock();
-        long[] queriedExpires = blackList.query(exactIp);
+        long[] queriedExpires = blackList.get(ip);
         boolean ret = (queriedExpires != null && queriedExpires[0] > System.currentTimeMillis());
         memLock.readLock().unlock();
         return ret;
@@ -202,7 +210,7 @@ public final class BlackListManager {
     }
 
     //此函数会在其他线程中调用
-    public static Set<Map.Entry<Integer, long[]>> entries() {
+    public static Set<Map.Entry<Long, long[]>> entries() {
         return blackList.entrySet();
     }
 

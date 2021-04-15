@@ -1,6 +1,6 @@
 package com.davidsoft.serverprotect.apps;
 
-import com.davidsoft.http.*;
+import com.davidsoft.net.http.*;
 import com.davidsoft.serverprotect.libs.HttpPath;
 
 import java.io.File;
@@ -28,12 +28,12 @@ public class FileWebApplication extends BaseWebApplication {
     }
 
     @Override
-    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, String ip, HttpPath requestRelativePath) {
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, HttpPath requestRelativePath) {
         return fileResponse(new File(getApplicationRootFile() + File.separator + String.join(File.separator, requestRelativePath.getPatterns())));
     }
 
     @Override
-    protected HttpResponseSender onGetFavicon(String ip) {
+    protected HttpResponseSender onGetFavicon(int ip) {
         return fileResponse(new File(getApplicationRootFile() + File.separator + "favicon.ico"));
     }
 }

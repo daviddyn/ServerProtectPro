@@ -1,7 +1,8 @@
 package com.davidsoft.serverprotect.components;
 
+import com.davidsoft.net.IP;
 import com.davidsoft.serverprotect.apps.WebApplicationFactory;
-import com.davidsoft.http.*;
+import com.davidsoft.net.http.*;
 import com.davidsoft.serverprotect.libs.HttpPath;
 import com.davidsoft.serverprotect.libs.PathIndex;
 import com.davidsoft.serverprotect.libs.PooledRunnable;
@@ -13,6 +14,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
 import java.util.ArrayList;
 
 /**
@@ -190,13 +192,18 @@ public class ClientConnection implements PooledRunnable {
     @Override
     public void run() {
         //获得客户IP、写日志
-        String clientIp = socket.getInetAddress().getHostAddress();
+        int clientIp = 0;
+        try {
+            clientIp = IP.parse(socket.getInetAddress().getHostAddress());
+        } catch (ParseException ignored) {
+            //Unreachable
+        }
         Program.logRequest(Log.LOG_INFO, socket.getRemoteSocketAddress().toString(), "已连接");
         runInner(clientIp);
         Program.logRequest(Log.LOG_INFO, socket.getRemoteSocketAddress().toString(), "已断开");
     }
 
-    private void runInner(String clientIp) {
+    private void runInner(int clientIp) {
         InputStream in;
         OutputStream out;
         WebApplication webApplication = null;
