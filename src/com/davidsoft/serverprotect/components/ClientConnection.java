@@ -1,12 +1,12 @@
 package com.davidsoft.serverprotect.components;
 
 import com.davidsoft.net.IP;
-import com.davidsoft.serverprotect.apps.WebApplicationFactory;
 import com.davidsoft.net.http.*;
-import com.davidsoft.serverprotect.libs.HttpPath;
-import com.davidsoft.serverprotect.libs.PathIndex;
+import com.davidsoft.serverprotect.apps.WebApplicationFactory;
 import com.davidsoft.serverprotect.libs.PooledRunnable;
 import com.davidsoft.serverprotect.rulers.*;
+import com.davidsoft.url.URI;
+import com.davidsoft.url.URIIndex;
 
 import java.io.File;
 import java.io.IOException;
@@ -287,7 +287,7 @@ public class ClientConnection implements PooledRunnable {
             //第二步：从请求头中获取一些必要信息
 
             //如果http版本不是1.1，则向浏览器发送505 HTTP Version not supported，并断开连接。
-            if (!"HTTP/1.1".equals(requestInfo.protocolVersion)) {
+            if (!"1.1".equals(requestInfo.protocolVersion)) {
                 try {
                     sendResponse(new HttpResponseSender(new HttpResponseInfo(505), null), false, null, out);
                 } catch (IOException ignored) {}
@@ -311,15 +311,15 @@ public class ClientConnection implements PooledRunnable {
             Settings.ApplicationMapping applicationMapping = runtimeSettings.appMappings.get(serverPort);
             //根据浏览器发来的URL，从映射表中找到映射的APP
             Settings.WebApplication webApplicationSettings;
-            HttpPath appWorkingRootPath;
-            PathIndex.QueryResult<Settings.WebApplication> queryResult = applicationMapping.mappedApps.get(requestInfo.path);
+            URI appWorkingRootURI;
+            URIIndex.QueryResult<Settings.WebApplication> queryResult = applicationMapping.mappedApps.get(requestInfo.uri.asLocation());
             if (queryResult == null) {
                 webApplicationSettings = applicationMapping.defaultApp;
-                appWorkingRootPath = new HttpPath();
+                appWorkingRootURI = URI.ROOT_URI;
             }
             else {
                 webApplicationSettings = queryResult.data;
-                appWorkingRootPath = queryResult.matchedPath;
+                appWorkingRootURI = queryResult.matchedURI;
             }
             //如果未找到任何有效APP，则向浏览器返回404。
             if (webApplicationSettings == null) {
@@ -336,7 +336,7 @@ public class ClientConnection implements PooledRunnable {
                 if (webApplication != null) {
                     webApplication.onDestroy();
                 }
-                webApplication = WebApplicationFactory.fromSettings(webApplicationSettings, appWorkingRootPath);
+                webApplication = WebApplicationFactory.fromSettings(webApplicationSettings, appWorkingRootURI);
                 //如果实例化失败，则向浏览器返回500
                 if (webApplication == null) {
                     try {

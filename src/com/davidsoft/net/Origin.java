@@ -59,12 +59,16 @@ public class Origin {
         return Objects.hash(protocol, host);
     }
 
+    public String toString(int defaultPort) {
+        if (protocol == null) {
+            return host.toString(true, defaultPort);
+        }
+        return protocol + Utils.protocolSuffix + host.toString(true, defaultPort);
+    }
+
     @Override
     public String toString() {
-        if (protocol == null) {
-            return host.toString();
-        }
-        return protocol + Utils.protocolSuffix + host;
+        return toString(Host.PORT_DEFAULT);
     }
 
     public static Origin parse(String source) throws ParseException {

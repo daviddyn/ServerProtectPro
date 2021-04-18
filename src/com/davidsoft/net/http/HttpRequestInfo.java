@@ -1,16 +1,18 @@
 package com.davidsoft.net.http;
 
-import com.davidsoft.serverprotect.libs.HttpPath;
+import com.davidsoft.net.NetURI;
+import com.davidsoft.url.URI;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
 
 public final class HttpRequestInfo {
 
     public String method;
-    public HttpPath path;
+    public URI uri;
     public String pathParameters;   //原始未经解析的请求参数，经过了url编码，如果url以?结尾，则此字段为空串，如果不包含参数，则此字段为null。
     public String protocolVersion;
     public final HttpHeaders headers;
@@ -21,15 +23,23 @@ public final class HttpRequestInfo {
 
     public HttpRequestInfo(HttpRequestInfo cloneFrom) {
         method = cloneFrom.method;
-        path = cloneFrom.path;
+        uri = cloneFrom.uri;
         pathParameters = cloneFrom.pathParameters;
         protocolVersion = cloneFrom.protocolVersion;
         headers = new HttpHeaders(cloneFrom.headers);
     }
 
-    private HttpRequestInfo(String method, HttpPath path, String pathParameters, String protocolVersion, HttpHeaders headers) {
+    public HttpRequestInfo(String method, URI uri, String pathParameters, String protocolVersion) {
         this.method = method;
-        this.path = path;
+        this.uri = uri;
+        this.pathParameters = pathParameters;
+        this.protocolVersion = protocolVersion;
+        this.headers = new HttpHeaders();
+    }
+
+    public HttpRequestInfo(String method, URI uri, String pathParameters, String protocolVersion, HttpHeaders headers) {
+        this.method = method;
+        this.uri = uri;
         this.pathParameters = pathParameters;
         this.protocolVersion = protocolVersion;
         this.headers = headers;
@@ -37,7 +47,7 @@ public final class HttpRequestInfo {
 
     //此方法不会写入多余的空行
     public void toHttpStream(OutputStream out) throws IOException {
-        out.write((method + " " + path.toString() + (pathParameters == null ? "" : "?" + pathParameters) + " " + protocolVersion + "\r\n").getBytes(StandardCharsets.UTF_8));
+        out.write((method + " " + NetURI.toString(uri) + (pathParameters == null ? "" : "?" + pathParameters) + " HTTP/" + protocolVersion + "\r\n").getBytes(StandardCharsets.UTF_8));
         headers.toRequestStream(out);
     }
 
@@ -63,7 +73,7 @@ public final class HttpRequestInfo {
         StringBuilder stringBuilder = new StringBuilder();
 
         //读第一行
-        String line = com.davidsoft.net.http.Utils.readHttpLine(in, stringBuilder);
+        String line = Utils.readHttpLine(in, stringBuilder);
         //解析method
         int findPos = line.indexOf(' ');
         if (findPos == -1 || findPos == 0 || findPos > 7) {
@@ -72,7 +82,7 @@ public final class HttpRequestInfo {
         method = line.substring(0, findPos);
         findPos++;
 
-        //解析path
+        //解析uri
         int findEnd = line.indexOf(' ', findPos);
         if (findEnd == -1 || findEnd - findPos == 0) {
             return INVALID_DATA;
@@ -82,13 +92,20 @@ public final class HttpRequestInfo {
         }
         String rawPath = line.substring(findPos, findEnd);
         int parameterSep = rawPath.indexOf("?");
+        String uri;
         if (parameterSep == -1) {
-            path = HttpPath.parse(rawPath);
+            uri = rawPath;
             pathParameters = null;
         }
         else {
-            path = HttpPath.parse(rawPath.substring(0, parameterSep));
+            uri = rawPath.substring(0, parameterSep);
             pathParameters = rawPath.substring(parameterSep + 1);
+        }
+        try {
+            this.uri = NetURI.parse(uri);
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return INVALID_DATA;
         }
         findPos = findEnd + 1;
 
@@ -96,8 +113,16 @@ public final class HttpRequestInfo {
         if (findPos == line.length()) {
             return INVALID_DATA;
         }
-        protocolVersion = line.substring(findPos);
-
+        if (!line.startsWith("HTTP/", findPos)) {
+            return INVALID_DATA;
+        }
+        protocolVersion = line.substring(findPos + 5);
+        try {
+            Float.parseFloat(protocolVersion);
+        }
+        catch (NumberFormatException e) {
+            return INVALID_DATA;
+        }
         switch (headers.fromRequestStreamLimited(in, stringBuilder, maxHeaderSize)) {
             case HttpHeaders.INVALID_DATA:
                 return INVALID_DATA;
@@ -110,6 +135,6 @@ public final class HttpRequestInfo {
 
     @Override
     public String toString() {
-        return method + " " + path.toString() + (pathParameters == null ? "" : "?" + pathParameters ) + " " + protocolVersion + System.lineSeparator() + headers.toRequestString();
+        return method + " " + NetURI.toString(uri) + (pathParameters == null ? "" : "?" + pathParameters ) + " HTTP/" + protocolVersion + System.lineSeparator() + headers.toRequestString();
     }
 }

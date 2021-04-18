@@ -23,6 +23,13 @@ public class Host {
     }
 
     public int getPort() {
+        return getPort(PORT_DEFAULT);
+    }
+
+    public int getPort(int defaultPort) {
+        if (port == PORT_DEFAULT) {
+            return defaultPort;
+        }
         return port;
     }
 

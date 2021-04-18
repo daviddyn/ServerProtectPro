@@ -1,5 +1,7 @@
 package com.davidsoft.serverprotect.components;
 
+import com.davidsoft.url.URI;
+
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -15,7 +17,7 @@ public final class TraceManager {
     }
 
     public static final class TraceInfo {
-        public String requiredRedirectLocation;
+        public URI requiredRedirectLocation;
         public final ArrayList<String> history = new ArrayList<>();
     }
 

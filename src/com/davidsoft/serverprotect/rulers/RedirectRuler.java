@@ -20,7 +20,7 @@ public class RedirectRuler implements Ruler {
         if (traceInfo == null || traceInfo.requiredRedirectLocation == null) {
             return true;
         }
-        return traceInfo.requiredRedirectLocation.equals(requestInfo.path.toString());
+        return traceInfo.requiredRedirectLocation.equals(requestInfo.uri);
     }
 
     @Override

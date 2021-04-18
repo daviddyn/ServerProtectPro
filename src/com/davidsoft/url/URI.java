@@ -9,6 +9,8 @@ public class URI {
     private final boolean relative;
     private final String resourceName;
 
+    public static final URI ROOT_URI = new URI(Path.EMPTY_PATH, false, null);
+
     public URI(Path location, boolean relative, String resourceName) {
         if (relative && resourceName == null && location.isRoot()) {
             throw new IllegalArgumentException();
@@ -55,6 +57,13 @@ public class URI {
         return relative;
     }
 
+    public URI makeRelative() {
+        if (relative) {
+            return this;
+        }
+        return new URI(location, true, resourceName);
+    }
+
     public boolean locationIsRoot() {
         return location.isRoot();
     }
@@ -93,6 +102,15 @@ public class URI {
             return this;
         }
         return new URI(location.subPath(startInclude, endExclude - 1), relative, location.patternAt(endExclude - 1));
+    }
+
+    public URI subURI(int startInclude, int endExclude) {
+        if (isLocation()) {
+            return subLocation(startInclude, endExclude);
+        }
+        else {
+            return subResource(startInclude, endExclude);
+        }
     }
 
     public URI getParentLocation() {

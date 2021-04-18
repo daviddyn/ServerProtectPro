@@ -1,15 +1,15 @@
 package com.davidsoft.serverprotect.apps;
 
-import com.davidsoft.net.IP;
-import com.davidsoft.net.Origin;
+import com.davidsoft.net.*;
 import com.davidsoft.net.http.*;
-import com.davidsoft.serverprotect.libs.HttpPath;
+import com.davidsoft.url.URI;
 
 import javax.net.ssl.SSLSocketFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.text.ParseException;
 
 public class ForwardWebApplication extends BaseWebApplication {
 
@@ -40,40 +40,36 @@ public class ForwardWebApplication extends BaseWebApplication {
     }
 
     @Override
-    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, HttpPath requestRelativePath) {
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, URI requestRelativeURI) {
         //1. 将收到的请求转换为要发给目标服务器的格式
 
-        Origin origin =
-        String origin = com.davidsoft.net.http.Utils.buildOrigin(targetDomain, targetPort, targetSSL);
+        Origin targetOrigin;
+        try {
+            targetOrigin = new Origin(targetSSL ? "http" : "https", new Host(Domain.parse(targetDomain), targetPort));
+        } catch (ParseException ignored) {
+            //unreachable
+            return null;
+        }
 		HttpRequestInfo targetRequestInfo = new HttpRequestInfo(requestInfo);
-        //更改Domain
-		targetRequestInfo.headers.setFieldValue("Domain", com.davidsoft.net.http.Utils.buildDomain(targetDomain, targetPort, targetSSL));
-		//如果有Referer，则更改Referer的协议和域名部分
+        //更改Host
+		targetRequestInfo.headers.setFieldValue("Host", targetOrigin.getHost().toString(false, targetSSL ? 443 : 80));
+        //如果有Origin，则更改Origin
+        if (targetRequestInfo.headers.containsField("Origin")) {
+            targetRequestInfo.headers.setFieldValue("Origin", targetOrigin.toString(targetSSL ? 443 : 80));
+        }
+		//如果有Referer，则更改Referer的Origin部分
         String value = targetRequestInfo.headers.getFieldValue("Referer");
 		if (value != null) {
-            int findPos = value.indexOf("//");
-            if (findPos >= 0) {
-                findPos = value.indexOf("/", findPos + 2);
-                if (findPos == -1) {
-                    value = origin;
-                }
-                else {
-                    value = origin + value.substring(findPos);
-                }
-                targetRequestInfo.headers.setFieldValue("Referer", value);
+            URL url;
+            try {
+                url = URL.parse(value);
+            } catch (ParseException ignored) {
+                //unreachable
+                return null;
             }
+            targetRequestInfo.headers.setFieldValue("Referer", url.setOrigin(targetOrigin).toString(targetSSL ? 443 : 80));
         }
-		//如果有Origin，则更改Origin的协议域名部分
-        value = targetRequestInfo.headers.getFieldValue("Origin");
-        if (value != null) {
-            if (value.endsWith("/")) {
-                value = origin + "/";
-            }
-            else {
-                value = origin;
-            }
-            targetRequestInfo.headers.setFieldValue("Origin", value);
-        }
+
         //如果转发ip，则添加X-Forwarded-For字段
         if (forwardIp) {
             targetRequestInfo.headers.setFieldValue("X-Forwarded-For", IP.toString(clientIp));

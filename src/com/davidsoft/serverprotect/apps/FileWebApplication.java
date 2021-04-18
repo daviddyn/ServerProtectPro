@@ -1,7 +1,7 @@
 package com.davidsoft.serverprotect.apps;
 
 import com.davidsoft.net.http.*;
-import com.davidsoft.serverprotect.libs.HttpPath;
+import com.davidsoft.url.URI;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,12 +28,12 @@ public class FileWebApplication extends BaseWebApplication {
     }
 
     @Override
-    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, HttpPath requestRelativePath) {
-        return fileResponse(new File(getApplicationRootFile() + File.separator + String.join(File.separator, requestRelativePath.getPatterns())));
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, URI requestRelativeURI) {
+        return fileResponse(new File(getApplicationRootFile() + requestRelativeURI.toString(File.separator, null)));
     }
 
     @Override
     protected HttpResponseSender onGetFavicon(int ip) {
-        return fileResponse(new File(getApplicationRootFile() + File.separator + "favicon.ico"));
+        return fileResponse(new File(getApplicationRootFile() + "favicon.ico"));
     }
 }

@@ -1,5 +1,6 @@
 package com.davidsoft.serverprotect.apps;
 
+import com.davidsoft.net.NetURI;
 import com.davidsoft.net.RegexIP;
 import com.davidsoft.net.http.*;
 import com.davidsoft.serverprotect.components.BlackListManager;
@@ -7,7 +8,7 @@ import com.davidsoft.serverprotect.components.Log;
 import com.davidsoft.serverprotect.components.Program;
 import com.davidsoft.serverprotect.components.Settings;
 import com.davidsoft.serverprotect.enties.*;
-import com.davidsoft.serverprotect.libs.HttpPath;
+import com.davidsoft.url.URI;
 import com.davidsoft.utils.JsonNode;
 
 import java.io.File;
@@ -353,8 +354,8 @@ public final class SettingsWebApplication extends FileWebApplication {
     }
 
     @Override
-    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, HttpPath requestRelativePath) {
-        switch (requestRelativePath.toString()) {
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, URI requestRelativeURI) {
+        switch (NetURI.toString(requestRelativeURI)) {
             case "/get":
                 if (!"POST".equals(requestInfo.method)) {
                     return new HttpResponseSender(new HttpResponseInfo(405), null);
@@ -370,7 +371,7 @@ public final class SettingsWebApplication extends FileWebApplication {
             case "/removeBlackList":
                 return onRemoveBlackList(requestContent);
             default:
-                return super.onClientRequest(requestInfo, requestContent, clientIp, requestRelativePath);
+                return super.onClientRequest(requestInfo, requestContent, clientIp, requestRelativeURI);
         }
     }
 }

@@ -1,19 +1,18 @@
 package com.davidsoft.serverprotect.components;
 
 import com.davidsoft.collections.ReadOnlyMap;
-import com.davidsoft.collections.ReadOnlySet;
-import com.davidsoft.net.RegexIP;
+import com.davidsoft.net.*;
 import com.davidsoft.serverprotect.Utils;
 import com.davidsoft.serverprotect.enties.*;
-import com.davidsoft.serverprotect.libs.HttpPath;
-import com.davidsoft.net.RegexIpIndex;
-import com.davidsoft.serverprotect.libs.PathIndex;
+import com.davidsoft.url.URI;
+import com.davidsoft.url.URIIndex;
 import com.davidsoft.utils.JsonNode;
 
 import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Properties;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public final class Settings {
@@ -52,14 +51,14 @@ public final class Settings {
         public final String name;
         public final String type;
         public final RegexIpIndex<Void> whiteList;
-        public final ReadOnlySet<String> allowDomains;
-        public final ReadOnlyMap<Integer, String> routers;
+        public final DomainIndex<Object> allowDomains;
+        public final ReadOnlyMap<Integer, URI> routers;
         public final String targetDomain;
         public final int targetPort;
         public final boolean targetSSL;
         public final boolean forwardIp;
 
-        private WebApplication(String name, String type, RegexIpIndex<Void> whiteList, ReadOnlySet<String> allowDomains, ReadOnlyMap<Integer, String> routers, String targetDomain, int targetPort, boolean targetSSL, boolean forwardIp) {
+        private WebApplication(String name, String type, RegexIpIndex<Void> whiteList, DomainIndex<Object> allowDomains, ReadOnlyMap<Integer, URI> routers, String targetDomain, int targetPort, boolean targetSSL, boolean forwardIp) {
             this.name = name;
             this.type = type;
             this.whiteList = whiteList;
@@ -85,13 +84,28 @@ public final class Settings {
                     }
                 }
             }
-            HashMap<Integer, String> routers = new HashMap<>();
+            DomainIndex<Object> allowDomains = new DomainIndex<>();
+            if (appNode.domains != null) {
+                try {
+                    for (String domain : appNode.domains) {
+                        allowDomains.put(Domain.parse(domain), "");
+                    }
+                }
+                catch (ParseException e) {
+                    throw new ApplyException("apps.domains", "无效域名");
+                }
+            }
+            HashMap<Integer, URI> routers = new HashMap<>();
             if (appNode.routers != null) {
                 for (RouterNode node : appNode.routers) {
                     if (routers.containsKey(node.errorCode)) {
                         throw new ApplyException("apps.routers", "错误号重复定义");
                     }
-                    routers.put(node.errorCode, node.location);
+                    try {
+                        routers.put(node.errorCode, NetURI.parse(node.location));
+                    } catch (ParseException e) {
+                        throw new ApplyException("apps.routers", "无效错误路由路径");
+                    }
                 }
             }
             switch (appNode.type) {
@@ -112,7 +126,7 @@ public final class Settings {
                         appNode.name,
                         appNode.type,
                         whiteList,
-                        new ReadOnlySet<>(new HashSet<>(Arrays.asList(appNode.domains))),
+                        allowDomains,
                         new ReadOnlyMap<>(routers),
                         null, 0, false, false
                 );
@@ -122,7 +136,7 @@ public final class Settings {
                         appNode.name,
                         appNode.type,
                         whiteList,
-                        new ReadOnlySet<>(new HashSet<>(Arrays.asList(appNode.domains))),
+                        allowDomains,
                         new ReadOnlyMap<>(routers),
                         appNode.target.domain, appNode.target.port, appNode.target.ssl, appNode.target.forwardIp
                 );
@@ -133,10 +147,10 @@ public final class Settings {
     public static final class ApplicationMapping {
         public final int port;
         public final boolean ssl;
-        public final PathIndex<WebApplication> mappedApps;
+        public final URIIndex<WebApplication> mappedApps;
         public final WebApplication defaultApp;
 
-        private ApplicationMapping(int port, boolean ssl, PathIndex<WebApplication> mappedApps, WebApplication defaultApp) {
+        private ApplicationMapping(int port, boolean ssl, URIIndex<WebApplication> mappedApps, WebApplication defaultApp) {
             this.port = port;
             this.ssl = ssl;
             this.mappedApps = mappedApps;
@@ -144,7 +158,7 @@ public final class Settings {
         }
 
         private static ApplicationMapping fromMappingNode(MappingNode mappingNode, HashMap<String, WebApplication> apps) throws ApplyException {
-            PathIndex<WebApplication> mappedApps = new PathIndex<>();
+            URIIndex<WebApplication> mappedApps = new URIIndex<>();
             WebApplication app;
             boolean defaultMatch = Utils.isStringEmpty(mappingNode.defaultApp);
             if (mappingNode.apps != null) {
@@ -156,14 +170,23 @@ public final class Settings {
                         if (Utils.isStringEmpty(node.name)) {
                             throw new ApplyException("mappings.apps.name", "字段不能为空");
                         }
-                        if (!node.root.startsWith("/")) {
-                            throw new ApplyException("mappings.apps.root", "必须以'/'开头");
-                        }
                         app = apps.get(node.name);
                         if (app == null) {
                             throw new ApplyException("mappings.apps.name", "在apps.json中未找到此名称的app");
                         }
-                        mappedApps.put(HttpPath.parse(node.root), apps.get(node.name));
+                        URI uri;
+                        try {
+                            uri = NetURI.parse(node.root);
+                        } catch (ParseException e) {
+                            throw new ApplyException("mappings.apps.root", "无效根路径");
+                        }
+                        if (uri.isRelative()) {
+                            throw new ApplyException("mappings.apps.root", "必须是以\"/\"开始的绝对路径");
+                        }
+                        if (uri.isResource()) {
+                            throw new ApplyException("mappings.apps.root", "必须是以\"/\"结尾的表示位置的路径");
+                        }
+                        mappedApps.put(uri, apps.get(node.name));
                         if (!defaultMatch && mappingNode.defaultApp.equals(node.name)) {
                             defaultMatch = true;
                         }

@@ -4,7 +4,7 @@ import com.davidsoft.collections.ReadOnlyMap;
 import com.davidsoft.net.*;
 import com.davidsoft.net.http.Utils;
 import com.davidsoft.net.http.*;
-import com.davidsoft.serverprotect.libs.HttpPath;
+import com.davidsoft.url.URI;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -16,17 +16,17 @@ public class BaseWebApplication implements WebApplication {
 
     private String name;
     private File applicationRootFile;
-    private HttpPath workingRootPath;
+    private URI workingRootURI;
     private RegexIpIndex<Void> ipWhiteList;
-    private DomainIndex<Void> allowDomains;
-    private ReadOnlyMap<Integer, String> routers;
+    private DomainIndex<Object> allowDomains;
+    private ReadOnlyMap<Integer, URI> routers;
 
-    private static final HttpPath FAVICON_PATH = HttpPath.parse("/favicon.ico");
+    private static final URI FAVICON_URI = URI.valueOfResource(false, "favicon.ico");
 
-    protected final void initialize(String name, File applicationRootFile, HttpPath workingRootPath, RegexIpIndex<Void> ipWhiteList, DomainIndex<Void> allowDomains, ReadOnlyMap<Integer, String> routers) {
+    protected final void initialize(String name, File applicationRootFile, URI workingRootURI, RegexIpIndex<Void> ipWhiteList, DomainIndex<Object> allowDomains, ReadOnlyMap<Integer, URI> routers) {
         this.name = name;
         this.applicationRootFile = applicationRootFile;
-        this.workingRootPath = workingRootPath;
+        this.workingRootURI = workingRootURI;
         this.ipWhiteList = ipWhiteList;
         this.allowDomains = allowDomains;
         this.routers = routers;
@@ -36,8 +36,8 @@ public class BaseWebApplication implements WebApplication {
         return applicationRootFile;
     }
 
-    public final HttpPath getWorkingRootPath() {
-        return workingRootPath;
+    public final URI getWorkingRootURI() {
+        return workingRootURI;
     }
 
     @Override
@@ -84,24 +84,18 @@ public class BaseWebApplication implements WebApplication {
             }
         }
         //3. 判断是不是访问网站图标
-        if (requestInfo.path.equals(FAVICON_PATH)) {
+        if (requestInfo.uri.equals(FAVICON_URI)) {
             return onGetFavicon(clientIp);
         }
         //4. 解析相对路径
-        HttpPath requestRelativePath;
-        if (workingRootPath.isRoot()) {
-            requestRelativePath = requestInfo.path;
-        }
-        else {
-            requestRelativePath = requestInfo.path.subPath(workingRootPath.patternCount());
-        }
+        URI requestRelativeURI = requestInfo.uri.subURI(workingRootURI.patternCount(), requestInfo.uri.patternCount());
         //5. 执行+路由控制
         HashSet<Integer> routed = new HashSet<>();
         int savedResponseCode = 0;
         String savedResponseDescription = null;
         HttpResponseSender sender;
         while (true) {
-            sender = onClientRequest(requestInfo, requestContent, clientIp, requestRelativePath);
+            sender = onClientRequest(requestInfo, requestContent, clientIp, requestRelativeURI);
             if (sender == null) {
                 return null;
             }
@@ -112,11 +106,11 @@ public class BaseWebApplication implements WebApplication {
             if (routed.contains(sender.responseInfo.responseCode)) {
                 break;
             }
-            String pathString = routers.get(sender.responseInfo.responseCode);
-            if (pathString == null) {
+            URI routedURI = routers.get(sender.responseInfo.responseCode);
+            if (routedURI == null) {
                 break;
             }
-            requestRelativePath = HttpPath.parse(pathString);
+            requestRelativeURI = routedURI;
             routed.add(sender.responseInfo.responseCode);
         }
         sender.responseInfo.responseCode = savedResponseCode;
@@ -124,7 +118,7 @@ public class BaseWebApplication implements WebApplication {
         return sender;
     }
 
-    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, HttpPath requestRelativePath) {
+    protected HttpResponseSender onClientRequest(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, URI requestRelativeURI) {
         StringBuilder webPageBuilder = new StringBuilder();
         webPageBuilder.append("<!DOCTYPE html><html><head><title>David Soft Server Protect Pro</title><body><h1>欢迎使用 David Soft Server Protect Pro</h1><hr><p>此页面是&nbsp;BaseWebApplication.onClientRequest(HttpRequestReceiver, String, HttpPath)&nbsp;的缺省实现，请重写此方法来实现自己的业务。</p><p>");
         webPageBuilder.append("App名称：").append(Utils.escapeHtml(name)).append("<br>");
@@ -145,15 +139,15 @@ public class BaseWebApplication implements WebApplication {
         webPageBuilder.append("]").append("<br>");
         webPageBuilder.append("错误路由：[");
         if (!routers.isEmpty()) {
-            for (Map.Entry<Integer, String> entry : routers.entrySet()) {
-                webPageBuilder.append(entry.getKey()).append("&nbsp;-&gt;&nbsp;").append(Utils.escapeHtml(entry.getValue())).append(",&nbsp;");
+            for (Map.Entry<Integer, URI> entry : routers.entrySet()) {
+                webPageBuilder.append(entry.getKey()).append("&nbsp;-&gt;&nbsp;").append(Utils.escapeHtml(NetURI.toString(entry.getValue()))).append(",&nbsp;");
             }
             webPageBuilder.delete(webPageBuilder.length() - 7, webPageBuilder.length());
         }
         webPageBuilder.append("]</p><p>");
         webPageBuilder.append("请求ip：").append(IP.toString(clientIp)).append("<br>");
-        webPageBuilder.append("App工作根网址：").append(Utils.escapeHtml(workingRootPath.toString())).append("<br>");
-        webPageBuilder.append("相对请求网址：").append(Utils.escapeHtml(requestRelativePath.toString())).append("</p><p>");
+        webPageBuilder.append("App工作根网址：").append(Utils.escapeHtml(NetURI.toString(workingRootURI))).append("<br>");
+        webPageBuilder.append("相对请求网址：").append(Utils.escapeHtml(NetURI.toString(requestRelativeURI))).append("</p><p>");
         webPageBuilder.append(Utils.escapeHtml(requestInfo.toString()));
         webPageBuilder.append("</p>");
         return new HttpResponseSender(

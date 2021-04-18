@@ -142,60 +142,9 @@ public class HttpResponseInfo {
         }
     }
 
-    /*
-
-    public static HttpResponseInfo build233() {
-        HttpResponseInfo info = buildCommon(true);
-        info.responseCode = 233;
-        info.responseDescription = "You Are Detected";
-        return info;
+    public static HttpResponseInfo buildRedirect(String location) {
+        HttpResponseInfo responseInfo = new HttpResponseInfo(302);
+        responseInfo.headers.setFieldValue("Location", location);
+        return responseInfo;
     }
-
-    public static HttpResponseInfo build400() {
-        HttpResponseInfo info = buildCommon(true);
-        info.responseCode = 400;
-        info.responseDescription = "Bad Request";
-        return info;
-    }
-
-    public static HttpResponseInfo build403() {
-        HttpResponseInfo info = buildCommon(true);
-        info.responseCode = 403;
-        info.responseDescription = "Forbidden";
-        return info;
-    }
-
-    public static HttpResponseInfo build411() {
-        HttpResponseInfo info = buildCommon(true);
-        info.responseCode = 411;
-        info.responseDescription = "Length Required";
-        return info;
-    }
-
-    public static HttpResponseInfo build500() {
-        HttpResponseInfo info = buildCommon(true);
-        info.responseCode = 500;
-        info.responseDescription = "Internal Server Error";
-        return info;
-    }
-
-    public static HttpResponseInfo build503() {
-        HttpResponseInfo info = buildCommon(true);
-        info.responseCode = 503;
-        info.responseDescription = "Service Unavailable";
-        return info;
-    }
-
-    public static HttpResponseInfo buildCommon(boolean closeConnection) {
-        HttpResponseInfo info = new HttpResponseInfo();
-        info.headers.put("server", new String[]{"Server", "DSSP_PRO/1.0"});
-        if (closeConnection) {
-            info.setHeaderField("Connection", "close");
-        }
-        else {
-            info.setHeaderField("Connection", "keep-alive");
-        }
-        return info;
-    }
-     */
 }

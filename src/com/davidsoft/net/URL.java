@@ -1,6 +1,5 @@
 package com.davidsoft.net;
 
-import com.davidsoft.net.http.HttpURIUtils;
 import com.davidsoft.url.Path;
 import com.davidsoft.url.URI;
 
@@ -24,8 +23,16 @@ public class URL {
         return origin;
     }
 
+    public URL setOrigin(Origin origin) {
+        return new URL(origin, uri);
+    }
+
     public URI getUri() {
         return uri;
+    }
+
+    public URL setUri(URI uri) {
+        return new URL(origin, uri);
     }
 
     public boolean isRelative() {
@@ -152,34 +159,38 @@ public class URL {
 
     public String toLocationString() {
         if (origin == null) {
-            return HttpURIUtils.toLocationString(uri);
+            return NetURI.toLocationString(uri);
         }
         else {
-            return origin.toString() + HttpURIUtils.toLocationString(uri);
+            return origin.toString() + NetURI.toLocationString(uri);
+        }
+    }
+
+    public String toString(int defaultPort) {
+        if (origin == null) {
+            return NetURI.toString(uri);
+        }
+        else {
+            return origin.toString(defaultPort) + NetURI.toString(uri);
         }
     }
 
     @Override
     public String toString() {
-        if (origin == null) {
-            return HttpURIUtils.toString(uri);
-        }
-        else {
-            return origin.toString() + HttpURIUtils.toString(uri);
-        }
+        return toString(Host.PORT_DEFAULT);
     }
 
     public static URL parse(String source) throws ParseException {
         int findPos = source.indexOf(Utils.hostPrefix);
         if (findPos == -1) {
             //没有主机前缀，则将所有内容解析为URI
-            return new URL(null, HttpURIUtils.parse(source));
+            return new URL(null, NetURI.parse(source));
         }
         //有主机前缀，则从主机前缀之后找到URI的开始
         int uriStart = source.indexOf(Utils.pathSeparator, findPos + Utils.hostPrefix.length());
         return new URL(
                 Origin.parse(source.substring(0, uriStart)),
-                HttpURIUtils.parse(source.substring(uriStart))
+                NetURI.parse(source.substring(uriStart))
         );
     }
 
