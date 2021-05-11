@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -18,7 +19,10 @@ public class HttpHeaders {
     }
 
     public HttpHeaders(HttpHeaders cloneFrom) {
-        headers = new LinkedHashMap<>(cloneFrom.headers);
+        headers = new LinkedHashMap<>(cloneFrom.headers.size());
+        for (Map.Entry<String, String[]> entry : cloneFrom.headers.entrySet()) {
+            headers.put(entry.getKey(), Arrays.copyOf(entry.getValue(), 2));
+        }
         cookies = new LinkedHashMap<>(cloneFrom.cookies);
     }
 
@@ -158,7 +162,11 @@ public class HttpHeaders {
         String line;
         bufferReuse.delete(0, bufferReuse.length());
         //解析其余字段
-        while (!(line = Utils.readHttpLine(in, bufferReuse)).isEmpty()) {
+        while (true) {
+            line = Utils.readHttpLine(in, bufferReuse);
+            if (line.isEmpty()) {
+                break;
+            }
             int findPos = line.indexOf(": ");
             if (findPos == -1 || findPos == 0 || findPos > 32) {
                 return null;

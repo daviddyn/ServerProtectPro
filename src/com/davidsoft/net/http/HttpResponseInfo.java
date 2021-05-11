@@ -31,6 +31,15 @@ public class HttpResponseInfo {
         this.headers = headers;
     }
 
+    public String toAbstractString() {
+        return protocolVersion + " " + responseCode + " " + responseDescription;
+    }
+
+    @Override
+    public String toString() {
+        return protocolVersion + " " + responseCode + " " + responseDescription + System.lineSeparator() + headers.toRequestString();
+    }
+
     //此方法不会写入多余的空行
     public void toHttpStream(OutputStream out) throws IOException {
         out.write((protocolVersion + " " + responseCode + " " + responseDescription + "\r\n").getBytes(StandardCharsets.UTF_8));
@@ -41,12 +50,24 @@ public class HttpResponseInfo {
     public static HttpResponseInfo fromHttpStream(InputStream in) throws IOException {
         StringBuilder stringBuilder = new StringBuilder();
         String line = Utils.readHttpLine(in, stringBuilder);
-        //默认服务器不会发来不可解析的信息
+        //服务器可能会发来不可解析的信息
         int findPos = line.indexOf(' ');
+        if (findPos == -1) {
+            return null;
+        }
         String protocolVersion = line.substring(0, findPos);
         findPos++;
         int findEnd = line.indexOf(' ', findPos);
-        int responseCode = Integer.parseInt(line.substring(findPos, findEnd));
+        if (findEnd == -1) {
+            return null;
+        }
+        int responseCode;
+        try {
+            responseCode = Integer.parseInt(line.substring(findPos, findEnd));
+        }
+        catch (NumberFormatException e) {
+            return null;
+        }
         String responseDescription = line.substring(findEnd + 1);
         HttpHeaders headers = HttpHeaders.fromResponseStream(in, stringBuilder);
         if (headers == null) {

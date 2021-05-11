@@ -17,6 +17,8 @@ public class HttpContentRawInputStream extends InputStream {
 
     private int readingState;
 
+    private long chunkLength;
+
     /**
      * chunked = true, contentLength参数将被忽略。
      * chunked = false, contentLength=-1 代表直接读到流末尾(此时连接一定是不复用的)。
@@ -59,7 +61,6 @@ public class HttpContentRawInputStream extends InputStream {
     }
 
     private int readChunked() throws IOException {
-        long chunkLength = 0;
         int b;
         if (readingState == 5) {
             b = source.read();

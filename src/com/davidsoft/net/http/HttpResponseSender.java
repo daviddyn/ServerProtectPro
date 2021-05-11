@@ -88,7 +88,7 @@ public class HttpResponseSender {
                 chunkedOut.finish();
                 HttpHeaders suspendedHeaders = contentProvider.getSuspendedHeader();
                 if (suspendedHeaders != null) {
-                    suspendedHeaders.toRequestStream(out);
+                    suspendedHeaders.toResponseStream(out);
                 }
                 out.write("\r\n".getBytes(StandardCharsets.UTF_8));
             }

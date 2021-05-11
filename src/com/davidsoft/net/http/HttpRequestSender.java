@@ -9,7 +9,7 @@ public class HttpRequestSender {
 
 	private static final byte[] CRLF_BYTES = "\r\n".getBytes(StandardCharsets.UTF_8);
 	
-    private final HttpRequestInfo requestInfo;
+    public final HttpRequestInfo requestInfo;
     private final HttpContentProvider contentProvider;
 
     public HttpRequestSender(HttpRequestInfo requestInfo, HttpContentProvider contentProvider) {

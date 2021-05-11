@@ -133,6 +133,10 @@ public final class HttpRequestInfo {
         }
     }
 
+    public String toAbstractString() {
+        return method + " " + NetURI.toString(uri) + (pathParameters == null ? "" : "?" + pathParameters ) + " HTTP/" + protocolVersion;
+    }
+
     @Override
     public String toString() {
         return method + " " + NetURI.toString(uri) + (pathParameters == null ? "" : "?" + pathParameters ) + " HTTP/" + protocolVersion + System.lineSeparator() + headers.toRequestString();

@@ -3,6 +3,8 @@ package com.davidsoft.net.http;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.HashSet;
 
 /**
  * 大致使用方法：
@@ -13,6 +15,13 @@ import java.nio.charset.Charset;
  * <p>5. 调用{@link #getSuspendedHeaders()}接收悬挂头。</p>
  */
 public class HttpContentReceiver {
+
+    /**
+     * 这里指明可能会包含Content的状态码。
+     */
+    private static final HashSet<Integer> contentResponseCodes = new HashSet<>(Arrays.asList(
+            200, 404
+    ));
 
     /**
      * Http请求头分析成功。
@@ -32,6 +41,7 @@ public class HttpContentReceiver {
     public static final int ANALYSE_MALFORMED_CONTENT_LENGTH = 3;
 
     private final InputStream in;
+    private final int responseCode;
     private final HttpHeaders httpHeaders;
 
     private boolean hasContent;
@@ -42,9 +52,14 @@ public class HttpContentReceiver {
     private boolean chunkedTransfer;
     private HttpHeaders suspendedHeaders;
 
-    public HttpContentReceiver(InputStream in, HttpHeaders httpHeaders) {
+    public HttpContentReceiver(InputStream in, int responseCode, HttpHeaders httpHeaders) {
         this.in = in;
+        this.responseCode = responseCode;
         this.httpHeaders = httpHeaders;
+    }
+
+    public HttpContentReceiver(InputStream in, HttpHeaders httpHeaders) {
+        this(in, -1,httpHeaders);
     }
 
     /**
@@ -57,6 +72,10 @@ public class HttpContentReceiver {
      * @return {@link #ANALYSE_SUCCESS}、{@link #ANALYSE_UNSUPPORTED_CONTENT_ENCODING}、{@link #ANALYSE_CONTENT_LENGTH_REQUIRED}、{@link #ANALYSE_MALFORMED_CONTENT_LENGTH}四者之一。
      */
     public int analyseContent() {
+        if (responseCode != -1 && !contentResponseCodes.contains(responseCode)) {
+            hasContent = false;
+            return ANALYSE_SUCCESS;
+        }
         String value = httpHeaders.getFieldValue("Content-Type");
         if (value != null) {
             int findPos = value.indexOf(";");

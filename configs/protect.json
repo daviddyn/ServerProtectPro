@@ -1,6 +1,6 @@
 {
   "blockAction": {
-    "method": "action",
+    "method": "disabled",
     "lengthInMinute": 0,
     "action": {
       "type": "shutdown",
@@ -21,7 +21,7 @@
   },
   "config": {
     "frequencyDetectIntervalInSecond": 1,
-    "frequencyDetectTimes": 50
+    "frequencyDetectTimes": 11
   },
   "illegalAgent": {
     "method": "action",
@@ -65,7 +65,7 @@
   },
   "illegalForward": {
     "method": "block",
-    "lengthInMinute": 1440,
+    "lengthInMinute": 43200,
     "action": {
       "type": "",
       "content": {
@@ -104,8 +104,8 @@
     }
   },
   "illegalMethod": {
-    "method": "disabled",
-    "lengthInMinute": 0,
+    "method": "block",
+    "lengthInMinute": 60,
     "action": {
       "type": "shutdown",
       "content": {
@@ -115,7 +115,7 @@
       }
     },
     "actionXhr": {
-      "type": "",
+      "type": "shutdown",
       "content": {
         "type": "",
         "mime": "",
@@ -124,7 +124,7 @@
     }
   },
   "illegalRedirect": {
-    "method": "block",
+    "method": "disabled",
     "lengthInMinute": 1440,
     "action": {
       "type": "",
