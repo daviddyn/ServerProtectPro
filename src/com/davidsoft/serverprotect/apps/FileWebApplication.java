@@ -33,7 +33,7 @@ public class FileWebApplication extends BaseWebApplication {
     }
 
     @Override
-    protected HttpResponseSender onGetFavicon(int ip) {
+    protected HttpResponseSender onGetFavicon(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, URI requestRelativeURI) {
         return fileResponse(new File(getApplicationRootFile() + "favicon.ico"));
     }
 }

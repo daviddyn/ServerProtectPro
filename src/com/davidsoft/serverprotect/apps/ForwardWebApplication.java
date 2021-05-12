@@ -53,27 +53,32 @@ public class ForwardWebApplication extends BaseWebApplication {
             //unreachable
             return null;
         }
+
 		HttpRequestInfo targetRequestInfo = new HttpRequestInfo(requestInfo);
+
+        //更改请求地址
+        targetRequestInfo.uri = requestRelativeURI;
         //更改Host
 		targetRequestInfo.headers.setFieldValue("Host", targetOrigin.getHost().toString(false, targetSSL ? 443 : 80));
         //如果有Origin，则更改Origin
         if (targetRequestInfo.headers.containsField("Origin")) {
             targetRequestInfo.headers.setFieldValue("Origin", targetOrigin.toString(targetSSL ? 443 : 80));
         }
-
-		//如果有Referer，则更改Referer的Origin部分
+		//如果有Referer，则更改Referer
         String value = targetRequestInfo.headers.getFieldValue("Referer");
 		if (value != null) {
-            URL url;
+            URL refererUrl;
             try {
-                url = URL.parse(value);
+                refererUrl = URL.parse(value);
             } catch (ParseException ignored) {
                 //unreachable
                 return null;
             }
-            targetRequestInfo.headers.setFieldValue("Referer", url.setOrigin(targetOrigin).toString(targetSSL ? 443 : 80));
+            targetRequestInfo.headers.setFieldValue(
+                    "Referer",
+                    new URL(targetOrigin, refererUrl.getUri().subURI(getWorkingRootURI().patternCount(), refererUrl.getUri().patternCount())).toString(targetSSL ? 443 : 80)
+            );
         }
-
         //如果转发ip，则添加X-Forwarded-For字段
         if (forwardIp) {
             targetRequestInfo.headers.setFieldValue("X-Forwarded-For", IP.toString(clientIp));
@@ -175,6 +180,11 @@ public class ForwardWebApplication extends BaseWebApplication {
         Log.logRequest(Log.LOG_INFO, "转发器", "接收：" + requestInfo.toAbstractString() + "；返回：" + responseInfo.toAbstractString());
 
         return new HttpResponseForwardSender(responseInfo, targetContentReceiver);
+    }
+
+    @Override
+    protected HttpResponseSender onGetFavicon(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, URI requestRelativeURI) {
+        return onClientRequest(requestInfo, requestContent, clientIp, requestRelativeURI);
     }
 
     private static class HttpRequestForwardSender extends HttpRequestSender {

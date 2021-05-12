@@ -29,73 +29,82 @@ public final class URIIndex<E> {
         root = new URINode<>();
     }
 
-    //返回true代表添加，false代表替换
-    private static <E> boolean putInner(URINode<E> current, URI uri, int pathPos, E data) {
-        if (pathPos == uri.patternCount()) {
-            if (uri.isLocation()) {
-                if (current.children == null) {
-                    current.children = new HashMap<>(2);
-                }
-                else {
-                    current = current.children.computeIfAbsent(null, v -> new URINode<>());
-                }
-            }
-            boolean insert = (current.data == null);
-            current.data = data;
-            return insert;
-        }
-        if (current.children == null) {
-            current.children = new HashMap<>(2);
-        }
-        return putInner(current.children.computeIfAbsent(uri.patternAt(pathPos), v -> new URINode<>()), uri, pathPos + 1, data);
-    }
-
     public void put(URI uri, E data) {
-        Objects.requireNonNull(data);
         if (uri.isRelative()) {
             throw new IllegalArgumentException("URIIndex集合不能管理相对uri");
         }
-        if (putInner(root, uri, 0, data)) {
+        URINode<E> n = root;
+        for (int i = 0; i < uri.patternCount(); i++) {
+            if (n.children == null) {
+                n.children = new HashMap<>(2);
+            }
+            n = n.children.computeIfAbsent(uri.patternAt(i), (t) -> new URINode<>());
+        }
+        if (uri.isLocation()) {
+            if (n.children == null) {
+                n.children = new HashMap<>(2);
+            }
+            n = n.children.computeIfAbsent(null, (t) -> new URINode<>());
+        }
+        if (n.data == null) {
             size++;
         }
+        n.data = data;
     }
 
     public QueryResult<E> get(URI uri) {
         if (uri.isRelative()) {
             throw new IllegalArgumentException("URIIndex集合不能管理相对uri");
         }
+        if (root.children == null || root.children.isEmpty()) {
+            return null;
+        }
         URINode<E> n = root;
-        E lastNonNullData = root.data;
+        URINode<E> lastMatchedNode = root.children.containsKey(null) ? root : null;
         int lastNonNullI = 0;
         int i;
         for (i = 0; i < uri.patternCount(); i++) {
             if (n.children == null) {
                 break;
             }
-            n = n.children.get(uri.patternAt(i));
-            if (n == null) {
+            URINode<E> child = n.children.get(uri.patternAt(i));
+            if (child == null) {
                 break;
             }
-            if (n.data != null) {
-                lastNonNullData = root.data;
-                lastNonNullI = i + 1;
+            n = child;
+            if (n.children != null && n.children.containsKey(null)) {
+                if (i == uri.patternCount() - 1) {
+                    if (n.data!= null) {
+                        lastMatchedNode = n;
+                        lastNonNullI = i + 1;
+                    }
+                }
+                else {
+                    lastMatchedNode = n;
+                    lastNonNullI = i + 1;
+                }
             }
         }
-        if (i == uri.patternCount() && uri.isLocation() && n.children != null) {
-            n = n.children.get(null);
-            if (n != null && n.data != null) {
-                lastNonNullData = root.data;
-                lastNonNullI = i + 1;
+        if (i == uri.patternCount()) {
+            if (uri.isLocation()) {
+                if (n.children != null) {
+                    n = n.children.get(null);
+                    if (n != null) {
+                        return new QueryResult<>(n.data, true, uri);
+                    }
+                }
+            }
+            else {
+                if (n.data != null) {
+                    return new QueryResult<>(n.data, true, uri);
+                }
             }
         }
-        if (lastNonNullData == null) {
+        if (lastMatchedNode == null) {
             return null;
         }
-        if (uri.isLocation()) {
-            return new QueryResult<>(lastNonNullData, lastNonNullI == uri.patternCount(), uri.subLocation(0, lastNonNullI));
-        }
         else {
-            return new QueryResult<>(lastNonNullData, lastNonNullI == uri.patternCount() - 1, uri.subResource(0, lastNonNullI));
+            return new QueryResult<>(lastMatchedNode.children.get(null).data, false, uri.subLocation(0, lastNonNullI));
         }
     }
 

@@ -22,7 +22,20 @@
       "domain": "apps.neu.edu.qizhiqiang.com",
       "port": 443,
       "ssl": true,
-      "forwardIp": false
+      "forwardIp": true
+    }
+  },
+  {
+    "name": "evaluate_res",
+    "type": "forward",
+    "whiteList": [],
+    "domains": [],
+    "routers": [],
+    "target": {
+      "domain": "apps.neu.edu.qizhiqiang.com",
+      "port": 443,
+      "ssl": true,
+      "forwardIp": true
     }
   },
   {

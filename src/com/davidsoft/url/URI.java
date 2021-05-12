@@ -98,10 +98,20 @@ public class URI {
     }
 
     public URI subResource(int startInclude, int endExclude) {
-        if (resourceName != null && startInclude == 0 && endExclude == location.patternCount() + 1) {
-            return this;
+        if (resourceName == null) {
+            return new URI(location.subPath(startInclude, endExclude - 1), relative, location.patternAt(endExclude - 1));
         }
-        return new URI(location.subPath(startInclude, endExclude - 1), relative, location.patternAt(endExclude - 1));
+        else {
+            if (startInclude == 0 && endExclude == location.patternCount() + 1) {
+                return this;
+            }
+            if (endExclude == location.patternCount() + 1) {
+                return new URI(location.subPath(startInclude, location.patternCount()), relative, resourceName);
+            }
+            else {
+                return new URI(location.subPath(startInclude, endExclude - 1), relative, location.patternAt(endExclude - 1));
+            }
+        }
     }
 
     public URI subURI(int startInclude, int endExclude) {

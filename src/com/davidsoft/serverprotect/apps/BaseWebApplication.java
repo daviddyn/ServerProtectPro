@@ -21,7 +21,7 @@ public class BaseWebApplication implements WebApplication {
     private DomainIndex<Object> allowDomains;
     private ReadOnlyMap<Integer, URI> routers;
 
-    private static final URI FAVICON_URI = URI.valueOfResource(false, "favicon.ico");
+    public static final URI FAVICON_URI = URI.valueOfResource(false, "favicon.ico");
 
     protected final void initialize(String name, File applicationRootFile, URI workingRootURI, RegexIpIndex<Void> ipWhiteList, DomainIndex<Object> allowDomains, ReadOnlyMap<Integer, URI> routers) {
         this.name = name;
@@ -83,12 +83,14 @@ public class BaseWebApplication implements WebApplication {
                 return null;
             }
         }
-        //3. 判断是不是访问网站图标
-        if (requestInfo.uri.equals(FAVICON_URI)) {
-            return onGetFavicon(clientIp);
-        }
-        //4. 解析相对路径
+        //3. 解析相对路径
+        System.out.println("requestInfo.uri = " + NetURI.toString(requestInfo.uri));
+        System.out.println("workingRootURI = " + NetURI.toString(workingRootURI));
         URI requestRelativeURI = requestInfo.uri.subURI(workingRootURI.patternCount(), requestInfo.uri.patternCount());
+        //4. 判断是不是访问网站图标
+        if (requestRelativeURI.equals(FAVICON_URI)) {
+            return onGetFavicon(requestInfo, requestContent, clientIp, requestRelativeURI);
+        }
         //5. 执行+路由控制
         HashSet<Integer> routed = new HashSet<>();
         int savedResponseCode = 0;
@@ -147,7 +149,7 @@ public class BaseWebApplication implements WebApplication {
         webPageBuilder.append("]</p><p>");
         webPageBuilder.append("请求ip：").append(IP.toString(clientIp)).append("<br>");
         webPageBuilder.append("App工作根网址：").append(Utils.escapeHtml(NetURI.toString(workingRootURI))).append("<br>");
-        webPageBuilder.append("相对请求网址：").append(Utils.escapeHtml(NetURI.toString(requestRelativeURI))).append("</p><p>");
+        webPageBuilder.append("相对请求网址(除去App映射路径后的网址，应以此地址为准进行业务开发。)：").append(Utils.escapeHtml(NetURI.toString(requestRelativeURI))).append("</p><p>");
         webPageBuilder.append(Utils.escapeHtml(requestInfo.toString()));
         webPageBuilder.append("</p>");
         return new HttpResponseSender(
@@ -156,7 +158,7 @@ public class BaseWebApplication implements WebApplication {
         );
     }
 
-    protected HttpResponseSender onGetFavicon(int clientIp) {
+    protected HttpResponseSender onGetFavicon(HttpRequestInfo requestInfo, HttpContentReceiver requestContent, int clientIp, URI requestRelativeURI) {
         return new HttpResponseSender(new HttpResponseInfo(404), null);
     }
 

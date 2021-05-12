@@ -124,18 +124,18 @@
     }
   },
   "illegalRedirect": {
-    "method": "disabled",
-    "lengthInMinute": 1440,
+    "method": "block",
+    "lengthInMinute": 1,
     "action": {
-      "type": "",
+      "type": "shutdown",
       "content": {
-        "type": "",
+        "type": "inline",
         "mime": "",
         "content": ""
       }
     },
     "actionXhr": {
-      "type": "",
+      "type": "shutdown",
       "content": {
         "type": "",
         "mime": "",
@@ -144,8 +144,8 @@
     }
   },
   "illegalTrace": {
-    "method": "disabled",
-    "lengthInMinute": 0,
+    "method": "block",
+    "lengthInMinute": 1,
     "action": {
       "type": "",
       "content": {
@@ -167,30 +167,9 @@
     "urls": [
       {
         "id": 0,
-        "url": "/"
-      },
-      {
-        "id": 102,
-        "url": "/def"
-      },
-      {
-        "id": 103,
-        "url": "5667897hkhjkhjk\ntjhytryyutryu"
-      },
-      {
-        "id": 104,
-        "url": "/dfsgsdfgsdfg"
-      },
-      {
-        "id": 104,
-        "url": ""
+        "url": "/*"
       }
     ],
-    "topology": [
-      [
-        104,
-        0
-      ]
-    ]
+    "topology": []
   }
 }

@@ -101,10 +101,10 @@ public class ClientConnection implements PooledRunnable {
         }
         switch (runtimeSettings.protections.precautionForIllegalTrace.method) {
             case "block":
-                rulerBuilder.add(new RulerNode("illegalTrace", new TraceRuler(), true, runtimeSettings.protections.precautionForIllegalTrace, 0));
+                rulerBuilder.add(new RulerNode("illegalTrace", new SimpleTraceRuler(), true, runtimeSettings.protections.precautionForIllegalTrace, 0));
                 break;
             case "action":
-                rulerBuilder.add(new RulerNode("illegalTrace", new TraceRuler(), false, runtimeSettings.protections.precautionForIllegalTrace, 0));
+                rulerBuilder.add(new RulerNode("illegalTrace", new SimpleTraceRuler(), false, runtimeSettings.protections.precautionForIllegalTrace, 0));
                 break;
         }
         rulers = new RulerNode[rulerBuilder.size()];
@@ -146,7 +146,7 @@ public class ClientConnection implements PooledRunnable {
 
     private void sendResponse(HttpResponseSender responseSender, boolean keepConnection, String contentEncoding, OutputStream out) throws IOException {
         //添油加醋
-        responseSender.responseInfo.headers.setFieldValue("Server", "DSSPPro/2.0");
+        responseSender.responseInfo.headers.setFieldValue("Server", "David Soft fsn™ Server (lite) v2.3.1");
         if (keepConnection) {
             responseSender.responseInfo.headers.setFieldValue("Connection", "keep-alive");
         }
@@ -304,14 +304,26 @@ public class ClientConnection implements PooledRunnable {
             //通过Accept-Encoding字段的情况判断浏览器想以何种压缩方式返回内容。responseEncoding为null则代表不压缩，返回原始数据。
             String responseEncoding = Utils.analyseQualityValues(requestInfo.headers.getFieldValue("Accept-Encoding"), HttpContentEncodedStreamFactory.getSupportedContentEncodings());
 
-            //第三步：实例化webapp
+            //第三步：判断ip封禁，若封禁，则流程结束。
+            if (BlackListManager.inBlackList(clientIp)) {
+                responseSender = doPrecautionForBlock(xhr);
+                if (responseSender != null) {
+                    try {
+                        sendResponse(responseSender, false, responseEncoding, out);
+                    } catch (IOException ignored) {}
+                }
+                com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
+                return;
+            }
+
+            //第四步：实例化webapp
 
             //获得当前服务器端口的APP映射表
             Settings.ApplicationMapping applicationMapping = runtimeSettings.appMappings.get(serverPort);
             //根据浏览器发来的URL，从映射表中找到映射的APP
             Settings.WebApplication webApplicationSettings;
             URI appWorkingRootURI;
-            URIIndex.QueryResult<Settings.WebApplication> queryResult = applicationMapping.mappedApps.get(requestInfo.uri.asLocation());
+            URIIndex.QueryResult<Settings.WebApplication> queryResult = applicationMapping.mappedApps.get(requestInfo.uri);
             if (queryResult == null) {
                 webApplicationSettings = applicationMapping.defaultApp;
                 appWorkingRootURI = URI.ROOT_URI;
@@ -349,22 +361,9 @@ public class ClientConnection implements PooledRunnable {
                 webApplication.onCreate();
             }
 
-            //第四步：如果此APP启用了防火墙，则逐一判断规则
+            //第五步：如果此APP启用了防火墙，则逐一判断规则
 
             if (webApplication.isProtectEnabled()) {
-                //判断ip封禁
-                if (BlackListManager.inBlackList(clientIp)) {
-                    responseSender = doPrecautionForBlock(xhr);
-                    if (responseSender != null) {
-                        try {
-                            sendResponse(responseSender, false, responseEncoding, out);
-                        } catch (IOException ignored) {}
-                    }
-                    com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
-                    webApplication.onDestroy();
-                    return;
-                }
-                //其他规则
                 for (RulerNode ruler : rulers) {
                     if (ruler.ruler.judge(clientIp, requestInfo)) {
                         continue;
@@ -406,7 +405,7 @@ public class ClientConnection implements PooledRunnable {
                 }
             }
 
-            //第五步：分析请求头是否合理
+            //第六步：分析请求头是否合理
 
             HttpContentReceiver contentReceiver = null;
             if ("POST".equals(requestInfo.method)) {
@@ -440,7 +439,7 @@ public class ClientConnection implements PooledRunnable {
                 }
             }
 
-            //第六步：执行webapp，获得正常情况下应当向浏览器返回的内容。
+            //第七步：执行webapp，获得正常情况下应当向浏览器返回的内容。
 
             //调用WebApp的onClientRequest方法获得返回内容
             responseSender = webApplication.onClientRequest(requestInfo, contentReceiver, clientIp, serverPort, ssl);
@@ -450,6 +449,15 @@ public class ClientConnection implements PooledRunnable {
                 webApplication.onDestroy();
                 return;
             }
+
+            //第八步：将返回内容发送给浏览器之前，如果此APP启用了防火墙，则调用规则的onDoSomethingForResponse
+
+            if (webApplication.isProtectEnabled()) {
+                for (RulerNode ruler : rulers) {
+                    ruler.ruler.onDoSomethingForResponse(responseSender.responseInfo);
+                }
+            }
+
             //将返回内容发送给浏览器
             try {
                 sendResponse(responseSender, flag && clientWantToKeepConnection && !"close".equals(responseSender.responseInfo.headers.getFieldValue("Connection")), responseEncoding, out);

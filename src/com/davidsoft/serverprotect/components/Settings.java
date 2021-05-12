@@ -329,6 +329,7 @@ public final class Settings {
         public final Precaution precautionForIllegalMethod;
         public final Precaution precautionForIllegalRedirect;
         public final Precaution precautionForIllegalTrace;
+        public final URIIndex<Boolean> traceURIs;
         //TODO: 添加图字段
 
         private Protections(long frequencyDetectIntervalInSecond,
@@ -340,7 +341,8 @@ public final class Settings {
                             Precaution precautionForIllegalFrequency,
                             Precaution precautionForIllegalMethod,
                             Precaution precautionForIllegalRedirect,
-                            Precaution precautionForIllegalTrace) {
+                            Precaution precautionForIllegalTrace,
+                            URIIndex<Boolean> traceURIs) {
             this.frequencyDetectIntervalInSecond = frequencyDetectIntervalInSecond;
             this.frequencyDetectTimes = frequencyDetectTimes;
             this.precautionForBlackList = precautionForBlackList;
@@ -351,9 +353,27 @@ public final class Settings {
             this.precautionForIllegalMethod = precautionForIllegalMethod;
             this.precautionForIllegalRedirect = precautionForIllegalRedirect;
             this.precautionForIllegalTrace = precautionForIllegalTrace;
+            this.traceURIs = traceURIs;
         }
 
         private static Protections fromProtectNode(ProtectNode protectNode) throws ApplyException {
+            URIIndex<Boolean> traceURIs = new URIIndex<>();
+            for (PathsUrlNode p : protectNode.paths.urls) {
+                if (p.url.endsWith("/*")) {
+                    try {
+                        traceURIs.put(NetURI.parse(p.url.substring(0, p.url.length() - 1)), true);
+                    } catch (ParseException e) {
+                        throw new ApplyException("paths.urls.url", "发现无效url", e);
+                    }
+                }
+                else {
+                    try {
+                        traceURIs.put(NetURI.parse(p.url), false);
+                    } catch (ParseException e) {
+                        throw new ApplyException("paths.urls.url", "发现无效url", e);
+                    }
+                }
+            }
             Protections protections = new Protections(
                     protectNode.config.frequencyDetectIntervalInSecond,
                     protectNode.config.frequencyDetectTimes,
@@ -364,7 +384,8 @@ public final class Settings {
                     Precaution.fromPrecautionNode(protectNode.illegalFreq),
                     Precaution.fromPrecautionNode(protectNode.illegalMethod),
                     Precaution.fromPrecautionNode(protectNode.illegalRedirect),
-                    Precaution.fromPrecautionNode(protectNode.illegalTrace)
+                    Precaution.fromPrecautionNode(protectNode.illegalTrace),
+                    traceURIs
             );
             return protections;
         }

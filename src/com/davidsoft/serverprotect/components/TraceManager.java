@@ -17,7 +17,7 @@ public final class TraceManager {
     }
 
     public static final class TraceInfo {
-        public URI requiredRedirectLocation;
+        public String requiredRedirectLocation;
         public final ArrayList<String> history = new ArrayList<>();
     }
 
@@ -85,7 +85,7 @@ public final class TraceManager {
     }
 
     //此函数可能会被其他线程调用
-    public static void updateTraceInfo(String nodeId, TraceInfo traceInfo) {
+    public static void registerRedirect(String nodeId, String requiredRedirectLocation) {
         try {
             lock.writeLock().lockInterruptibly();
         } catch (InterruptedException e) {
@@ -94,14 +94,11 @@ public final class TraceManager {
         TraceNode traceNode = traces.get(nodeId);
         if (traceNode == null) {
             traceNode = new TraceNode();
+            traceNode.traceInfo = new TraceInfo();
             traces.put(nodeId, traceNode);
         }
         traceNode.expires = System.currentTimeMillis() + TRACE_NODE_EXPIRES;
-        traceNode.traceInfo = traceInfo;
+        traceNode.traceInfo.requiredRedirectLocation = requiredRedirectLocation;
         lock.writeLock().unlock();
-    }
-
-    public static void notifySettingsChanged() {
-        Settings.RuntimeSettings runtimeSettings = Settings.getRuntimeSettings();
     }
 }
