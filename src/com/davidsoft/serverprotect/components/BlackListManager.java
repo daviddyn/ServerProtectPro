@@ -148,7 +148,7 @@ public final class BlackListManager {
             result = queriedExpires[0];
         }
         if (result <= 0) {
-            Log.logMain(Log.LOG_INFO, LOG_CATEGORY, "已禁止 " + regexIp + " 的访问，且将在 " + simpleDateFormat.format(expires) + " 解除。从下一个连接起开始生效。");
+            Log.logMain(Log.LOG_INFO, LOG_CATEGORY, "已禁止 " + RegexIP.toString(regexIp) + " 的访问，且将在 " + simpleDateFormat.format(expires) + " 解除。从下一个连接起开始生效。");
             PrintStream out;
             try {
                 out = new PrintStream(new FileOutputStream(FILE_BLOCKS, true));
@@ -157,7 +157,7 @@ public final class BlackListManager {
                 memLock.writeLock().unlock();
                 return result;
             }
-            out.print(regexIp);
+            out.print(RegexIP.toString(regexIp));
             out.print("\t");
             out.println(simpleDateFormat.format(expires));
             out.close();
@@ -175,7 +175,7 @@ public final class BlackListManager {
         if (!blackList.removeExactly(regexIp)) {
             return;
         }
-        Log.logMain(Log.LOG_INFO, LOG_CATEGORY, "已允许 " + regexIp + " 的访问。从下一个连接起开始生效。");
+        Log.logMain(Log.LOG_INFO, LOG_CATEGORY, "已允许 " + RegexIP.toString(regexIp) + " 的访问。从下一个连接起开始生效。");
         PrintStream out;
         try {
             out = new PrintStream(new FileOutputStream(FILE_BLOCKS, true));
@@ -185,7 +185,7 @@ public final class BlackListManager {
             return;
         }
         out.print("-");
-        out.println(regexIp);
+        out.println(RegexIP.toString(regexIp));
         out.close();
         memLock.writeLock().unlock();
     }

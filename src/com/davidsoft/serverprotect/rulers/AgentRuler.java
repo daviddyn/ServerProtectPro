@@ -4,6 +4,7 @@ import com.davidsoft.net.http.HttpRequestInfo;
 import com.davidsoft.net.http.HttpResponseInfo;
 
 public class AgentRuler implements Ruler {
+
     @Override
     public boolean judge(int clientIp, HttpRequestInfo requestInfo) {
         String userAgent = requestInfo.headers.getFieldValue("User-Agent");

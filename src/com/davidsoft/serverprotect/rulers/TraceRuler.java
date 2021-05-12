@@ -8,6 +8,7 @@ public class TraceRuler implements Ruler {
     @Override
     public boolean judge(int clientIp, HttpRequestInfo requestInfo) {
         //TODO: 路径判断算法
+
         return true;
     }
 

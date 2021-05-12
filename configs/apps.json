@@ -28,7 +28,9 @@
   {
     "name": "settings",
     "type": "settings",
-    "whiteList": [],
+    "whiteList": [
+      "127.0.0.1"
+    ],
     "domains": [
       "127.0.0.1",
       "localhost"

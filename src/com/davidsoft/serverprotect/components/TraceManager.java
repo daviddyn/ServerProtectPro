@@ -26,6 +26,7 @@ public final class TraceManager {
     private static final HashMap<String, TraceNode> traces = new HashMap<>();
     private static final Timer timer = new Timer();
 
+
     //此函数可能会被其他线程调用
     private static boolean doCleanUp() {
         try {
@@ -98,5 +99,9 @@ public final class TraceManager {
         traceNode.expires = System.currentTimeMillis() + TRACE_NODE_EXPIRES;
         traceNode.traceInfo = traceInfo;
         lock.writeLock().unlock();
+    }
+
+    public static void notifySettingsChanged() {
+        Settings.RuntimeSettings runtimeSettings = Settings.getRuntimeSettings();
     }
 }

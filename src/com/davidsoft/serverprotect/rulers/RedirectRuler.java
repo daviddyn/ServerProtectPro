@@ -4,18 +4,20 @@ import com.davidsoft.serverprotect.components.TraceManager;
 import com.davidsoft.net.http.HttpRequestInfo;
 import com.davidsoft.net.http.HttpResponseInfo;
 
+import java.util.UUID;
+
 public class RedirectRuler implements Ruler {
 
-    private boolean doSomething;
+    private boolean newer;
 
     @Override
     public boolean judge(int clientIp, HttpRequestInfo requestInfo) {
         String traceId = requestInfo.headers.cookies.get("traceId");
         if (traceId == null) {
-            doSomething = true;
+            newer = true;
             return true;
         }
-        doSomething = false;
+        newer = false;
         TraceManager.TraceInfo traceInfo = TraceManager.getTraceInfo(traceId);
         if (traceInfo == null || traceInfo.requiredRedirectLocation == null) {
             return true;
@@ -25,8 +27,12 @@ public class RedirectRuler implements Ruler {
 
     @Override
     public void onDoSomethingForResponse(HttpResponseInfo responseInfo) {
-        if (doSomething) {
+        if (responseInfo.responseCode == 302) {
 
+        }
+        if (newer) {
+            String traceId = UUID.randomUUID().toString();
+            responseInfo.headers.cookies.put("traceId", traceId);
         }
     }
 }

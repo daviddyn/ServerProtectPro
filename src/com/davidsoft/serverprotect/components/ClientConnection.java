@@ -22,13 +22,17 @@ import java.util.ArrayList;
  */
 public class ClientConnection implements PooledRunnable {
 
+    private static final String LOG_CATEGORY = "通用请求处理器";
+
     private static final class RulerNode {
+        private final String name;
         private final Ruler ruler;
         private final boolean block;
         private final Settings.Precaution precaution;
         private final int responseCode;
 
-        private RulerNode(Ruler ruler, boolean block, Settings.Precaution precaution, int responseCode) {
+        private RulerNode(String name, Ruler ruler, boolean block, Settings.Precaution precaution, int responseCode) {
+            this.name = name;
             this.ruler = ruler;
             this.block = block;
             this.precaution = precaution;
@@ -54,59 +58,53 @@ public class ClientConnection implements PooledRunnable {
         ArrayList<RulerNode> rulerBuilder = new ArrayList<>(6);
         switch (runtimeSettings.protections.precautionForIllegalFrequency.method) {
             case "block":
-                rulerBuilder.add(new RulerNode(new FrequencyRuler(), true, runtimeSettings.protections.precautionForIllegalFrequency, 0));
+                rulerBuilder.add(new RulerNode("illegalFrequency", new FrequencyRuler(), true, runtimeSettings.protections.precautionForIllegalFrequency, 0));
                 break;
             case "action":
-                rulerBuilder.add(new RulerNode(new FrequencyRuler(), false, runtimeSettings.protections.precautionForIllegalFrequency, 0));
+                rulerBuilder.add(new RulerNode("illegalFrequency", new FrequencyRuler(), false, runtimeSettings.protections.precautionForIllegalFrequency, 0));
                 break;
         }
         switch (runtimeSettings.protections.precautionForIllegalForward.method) {
             case "block":
-                rulerBuilder.add(new RulerNode(new ForwardRuler(), true, runtimeSettings.protections.precautionForIllegalForward, 0));
+                rulerBuilder.add(new RulerNode("illegalForward", new ForwardRuler(), true, runtimeSettings.protections.precautionForIllegalForward, 0));
                 break;
             case "action":
-                rulerBuilder.add(new RulerNode(new ForwardRuler(), false, runtimeSettings.protections.precautionForIllegalForward, 0));
+                rulerBuilder.add(new RulerNode("illegalForward", new ForwardRuler(), false, runtimeSettings.protections.precautionForIllegalForward, 0));
                 break;
         }
         switch (runtimeSettings.protections.precautionForIllegalMethod.method) {
             case "block":
-                rulerBuilder.add(new RulerNode(new MethodRuler(), true, runtimeSettings.protections.precautionForIllegalMethod, 0));
+                rulerBuilder.add(new RulerNode("illegalMethod", new MethodRuler(), true, runtimeSettings.protections.precautionForIllegalMethod, 0));
                 break;
             case "action":
-                rulerBuilder.add(new RulerNode(new MethodRuler(), false, runtimeSettings.protections.precautionForIllegalMethod, 0));
+                rulerBuilder.add(new RulerNode("illegalMethod", new MethodRuler(), false, runtimeSettings.protections.precautionForIllegalMethod, 0));
                 break;
         }
         switch (runtimeSettings.protections.precautionForIllegalAgent.method) {
             case "block":
-                rulerBuilder.add(new RulerNode(new AgentRuler(), true, runtimeSettings.protections.precautionForIllegalAgent, 0));
+                rulerBuilder.add(new RulerNode("illegalAgent", new AgentRuler(), true, runtimeSettings.protections.precautionForIllegalAgent, 0));
                 break;
             case "action":
-                rulerBuilder.add(new RulerNode(new AgentRuler(), false, runtimeSettings.protections.precautionForIllegalAgent, 0));
+                rulerBuilder.add(new RulerNode("illegalAgent", new AgentRuler(), false, runtimeSettings.protections.precautionForIllegalAgent, 0));
                 break;
             default:
-                rulerBuilder.add(new RulerNode(new AgentRuler(), false, null, 412));
+                rulerBuilder.add(new RulerNode("illegalAgent", new AgentRuler(), false, null, 412));
                 break;
         }
         switch (runtimeSettings.protections.precautionForIllegalRedirect.method) {
             case "block":
-                rulerBuilder.add(new RulerNode(new RedirectRuler(), true, runtimeSettings.protections.precautionForIllegalRedirect, 0));
+                rulerBuilder.add(new RulerNode("illegalRedirect", new RedirectRuler(), true, runtimeSettings.protections.precautionForIllegalRedirect, 0));
                 break;
             case "action":
-                rulerBuilder.add(new RulerNode(new RedirectRuler(), false, runtimeSettings.protections.precautionForIllegalRedirect, 0));
-                break;
-            default:
-                rulerBuilder.add(new RulerNode(new RedirectRuler(), false, null, 412));
+                rulerBuilder.add(new RulerNode("illegalRedirect", new RedirectRuler(), false, runtimeSettings.protections.precautionForIllegalRedirect, 0));
                 break;
         }
         switch (runtimeSettings.protections.precautionForIllegalTrace.method) {
             case "block":
-                rulerBuilder.add(new RulerNode(new TraceRuler(), true, runtimeSettings.protections.precautionForIllegalTrace, 0));
+                rulerBuilder.add(new RulerNode("illegalTrace", new TraceRuler(), true, runtimeSettings.protections.precautionForIllegalTrace, 0));
                 break;
             case "action":
-                rulerBuilder.add(new RulerNode(new TraceRuler(), false, runtimeSettings.protections.precautionForIllegalTrace, 0));
-                break;
-            default:
-                rulerBuilder.add(new RulerNode(new TraceRuler(), false, null, 412));
+                rulerBuilder.add(new RulerNode("illegalTrace", new TraceRuler(), false, runtimeSettings.protections.precautionForIllegalTrace, 0));
                 break;
         }
         rulers = new RulerNode[rulerBuilder.size()];
@@ -242,6 +240,7 @@ public class ClientConnection implements PooledRunnable {
                     break;
                 case HttpRequestInfo.INVALID_DATA:
                     //如果浏览器发来的内容不符合http语法，则触发了IllegalData规则。
+                    Log.logRequest(Log.LOG_INFO, LOG_CATEGORY, IP.toString(clientIp) + " 发来不符合http语法的请求数据，已触发IllegalData规则。");
                     switch (runtimeSettings.protections.precautionForIllegalData.method) {
                         case "disabled":
                             //如果IllegalData规则设置为[已禁用]，则向浏览器发送400 Bad Request。
@@ -370,6 +369,7 @@ public class ClientConnection implements PooledRunnable {
                     if (ruler.ruler.judge(clientIp, requestInfo)) {
                         continue;
                     }
+                    Log.logRequest(Log.LOG_INFO, LOG_CATEGORY, IP.toString(clientIp) + " 已触发" + ruler.name + "规则。");
                     if (ruler.block) {
                         Program.addBlackList(clientIp, System.currentTimeMillis() + ruler.precaution.blockLengthInMinute * 60000);
                         responseSender = doPrecautionForBlock(xhr);

@@ -10,6 +10,7 @@ public class MethodRuler implements Ruler {
         switch (requestInfo.method) {
             case "GET":
             case "POST":
+            case "HEAD":
                 return true;
             default:
                 return false;
