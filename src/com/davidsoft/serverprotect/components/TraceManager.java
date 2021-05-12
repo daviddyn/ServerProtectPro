@@ -1,7 +1,5 @@
 package com.davidsoft.serverprotect.components;
 
-import com.davidsoft.url.URI;
-
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -9,7 +7,6 @@ public final class TraceManager {
 
     private static final long TRACE_NODE_EXPIRES = 600000;
     private static final long TRACE_NODE_CLEAN_INTERVAL = 600000;
-    //private static final long TRACE_NODE_CLEAN_INTERVAL = 10000;
 
     private static final class TraceNode {
         private long expires;

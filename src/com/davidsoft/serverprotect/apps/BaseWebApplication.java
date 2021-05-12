@@ -8,7 +8,6 @@ import com.davidsoft.url.URI;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.text.ParseException;
 import java.util.HashSet;
 import java.util.Map;
 
@@ -20,16 +19,18 @@ public class BaseWebApplication implements WebApplication {
     private RegexIpIndex<Void> ipWhiteList;
     private DomainIndex<Object> allowDomains;
     private ReadOnlyMap<Integer, URI> routers;
+    private Host selfHost;
 
     public static final URI FAVICON_URI = URI.valueOfResource(false, "favicon.ico");
 
-    protected final void initialize(String name, File applicationRootFile, URI workingRootURI, RegexIpIndex<Void> ipWhiteList, DomainIndex<Object> allowDomains, ReadOnlyMap<Integer, URI> routers) {
+    protected final void initialize(String name, File applicationRootFile, URI workingRootURI, RegexIpIndex<Void> ipWhiteList, DomainIndex<Object> allowDomains, ReadOnlyMap<Integer, URI> routers, Host selfHost) {
         this.name = name;
         this.applicationRootFile = applicationRootFile;
         this.workingRootURI = workingRootURI;
         this.ipWhiteList = ipWhiteList;
         this.allowDomains = allowDomains;
         this.routers = routers;
+        this.selfHost = selfHost;
     }
 
     public final File getApplicationRootFile() {
@@ -63,29 +64,14 @@ public class BaseWebApplication implements WebApplication {
             return null;
         }
         //2. Host过滤
-        String hostField = requestInfo.headers.getFieldValue("Host");
-        if (hostField == null) {
+        int port = selfHost.getPort();
+        if (port == Host.PORT_DEFAULT) {
+            port = Utils.getDefaultPort(ssl);
+        }
+        if (port != serverPort || (!allowDomains.isEmpty() && allowDomains.get(selfHost.getDomain()) == null)) {
             return null;
         }
-        else {
-            Host host;
-            try {
-                host = Host.parse(hostField);
-            } catch (ParseException e) {
-                return null;
-            }
-            //String domain = com.davidsoft.net.http.Utils.getHostFromDomain(hostField);
-            int port = host.getPort();
-            if (port == Host.PORT_DEFAULT) {
-                port = Utils.getDefaultPort(ssl);
-            }
-            if (port != serverPort || (!allowDomains.isEmpty() && allowDomains.get(host.getDomain()) == null)) {
-                return null;
-            }
-        }
         //3. 解析相对路径
-        System.out.println("requestInfo.uri = " + NetURI.toString(requestInfo.uri));
-        System.out.println("workingRootURI = " + NetURI.toString(workingRootURI));
         URI requestRelativeURI = requestInfo.uri.subURI(workingRootURI.patternCount(), requestInfo.uri.patternCount());
         //4. 判断是不是访问网站图标
         if (requestRelativeURI.equals(FAVICON_URI)) {
@@ -170,5 +156,9 @@ public class BaseWebApplication implements WebApplication {
     @Override
     public final String getName() {
         return name;
+    }
+
+    public Host getSelfHost() {
+        return selfHost;
     }
 }

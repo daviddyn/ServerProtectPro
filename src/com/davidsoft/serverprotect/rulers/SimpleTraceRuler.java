@@ -9,6 +9,9 @@ public class SimpleTraceRuler implements Ruler {
 
     @Override
     public boolean judge(int clientIp, HttpRequestInfo requestInfo) {
+        if ("favicon.ico".equals(requestInfo.uri.getResourceName())) {
+            return true;
+        }
         URIIndex.QueryResult<Boolean> queryResult = Settings.getRuntimeSettings().protections.traceURIs.get(requestInfo.uri);
         if (queryResult == null) {
             return false;

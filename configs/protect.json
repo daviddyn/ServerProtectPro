@@ -166,8 +166,16 @@
   "paths": {
     "urls": [
       {
-        "id": 0,
-        "url": "/*"
+        "id": 101,
+        "url": "/dist/*"
+      },
+      {
+        "id": 102,
+        "url": "/"
+      },
+      {
+        "id": 103,
+        "url": "/evaluate/*"
       }
     ],
     "topology": []

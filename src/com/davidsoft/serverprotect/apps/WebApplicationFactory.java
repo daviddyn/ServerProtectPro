@@ -1,5 +1,6 @@
 package com.davidsoft.serverprotect.apps;
 
+import com.davidsoft.net.Host;
 import com.davidsoft.serverprotect.components.Settings;
 import com.davidsoft.net.http.WebApplication;
 import com.davidsoft.url.URI;
@@ -8,7 +9,7 @@ import java.io.File;
 
 public final class WebApplicationFactory {
 
-    public static WebApplication fromSettings(Settings.WebApplication webApplicationSettings, URI requestRelativeURI) {
+    public static WebApplication fromSettings(Settings.WebApplication webApplicationSettings, URI requestRelativeURI, Host selfHost) {
         BaseWebApplication baseWebApplication;
         switch (webApplicationSettings.type) {
             case "app":
@@ -37,7 +38,8 @@ public final class WebApplicationFactory {
                 requestRelativeURI,
                 webApplicationSettings.whiteList,
                 webApplicationSettings.allowDomains,
-                webApplicationSettings.routers
+                webApplicationSettings.routers,
+                selfHost
         );
         return baseWebApplication;
     }

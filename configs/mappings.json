@@ -5,10 +5,6 @@
     "apps": [
       {
         "name": "evaluate",
-        "root": "/evaluate/"
-      },
-      {
-        "name": "evaluate_res",
         "root": "/"
       }
     ],

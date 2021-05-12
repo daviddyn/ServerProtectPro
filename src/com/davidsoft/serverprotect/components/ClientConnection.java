@@ -1,5 +1,6 @@
 package com.davidsoft.serverprotect.components;
 
+import com.davidsoft.net.Host;
 import com.davidsoft.net.IP;
 import com.davidsoft.net.http.*;
 import com.davidsoft.serverprotect.apps.WebApplicationFactory;
@@ -113,11 +114,13 @@ public class ClientConnection implements PooledRunnable {
         flag = true;
     }
 
-    private HttpResponseSender doPrecautionForBlock(boolean xhr) {
+    private HttpResponseSender doPrecautionForBlock() {
         if ("disabled".equals(runtimeSettings.protections.precautionForBlackList.method)) {
             return new HttpResponseSender(new HttpResponseInfo("HTTP/1.1", 233, "You Are Detected"), null);
         }
-        return doPrecaution(runtimeSettings.protections.precautionForBlackList, xhr);
+        else {
+            return null;
+        }
     }
 
     private HttpResponseSender doPrecaution(Settings.Precaution precaution, boolean xhr) {
@@ -189,16 +192,14 @@ public class ClientConnection implements PooledRunnable {
 
     @Override
     public void run() {
-        //获得客户IP、写日志
+        //获得客户IP
         int clientIp = 0;
         try {
             clientIp = IP.parse(socket.getInetAddress().getHostAddress());
         } catch (ParseException ignored) {
             //Unreachable
         }
-        Program.logRequest(Log.LOG_INFO, socket.getRemoteSocketAddress().toString(), "已连接");
         runInner(clientIp);
-        Program.logRequest(Log.LOG_INFO, socket.getRemoteSocketAddress().toString(), "已断开");
     }
 
     private void runInner(int clientIp) {
@@ -211,6 +212,18 @@ public class ClientConnection implements PooledRunnable {
             in = socket.getInputStream();
             out = socket.getOutputStream();
         } catch (IOException e) {
+            com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
+            return;
+        }
+
+        //判断封禁IP，若封禁，则流程结束。
+        if (BlackListManager.inBlackList(clientIp)) {
+            HttpResponseSender responseSender = doPrecautionForBlock();
+            if (responseSender != null) {
+                try {
+                    sendResponse(responseSender, false, null, out);
+                } catch (IOException ignored) {}
+            }
             com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
             return;
         }
@@ -240,27 +253,35 @@ public class ClientConnection implements PooledRunnable {
                     break;
                 case HttpRequestInfo.INVALID_DATA:
                     //如果浏览器发来的内容不符合http语法，则触发了IllegalData规则。
-                    Log.logRequest(Log.LOG_INFO, LOG_CATEGORY, IP.toString(clientIp) + " 发来不符合http语法的请求数据，已触发IllegalData规则。");
                     switch (runtimeSettings.protections.precautionForIllegalData.method) {
                         case "disabled":
                             //如果IllegalData规则设置为[已禁用]，则向浏览器发送400 Bad Request。
                             responseSender = new HttpResponseSender(new HttpResponseInfo(400), null);
+                            Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"发来不符合http语法的请求数据，已应用IllegalData规则。\" " + responseSender.responseInfo.responseCode);
                             break;
                         case "action":
                             //如果IllegalData规则设置为[返回指定内容]，则返回指定内容。
                             responseSender = doPrecaution(runtimeSettings.protections.precautionForIllegalData, false);
                             if (responseSender == null) {
+                                Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"发来不符合http语法的请求数据，已应用IllegalData规则。\" x");
                                 com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
                                 return;
+                            }
+                            else {
+                                Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"发来不符合http语法的请求数据，已应用IllegalData规则。\" " + responseSender.responseInfo.responseCode);
                             }
                             break;
                         case "block":
                             //如果IllegalData规则设置为[封禁ip]，则封禁ip。
                             Program.addBlackList(clientIp, System.currentTimeMillis() + runtimeSettings.protections.precautionForIllegalData.blockLengthInMinute * 60000);
-                            responseSender = doPrecautionForBlock(false);
+                            responseSender = doPrecautionForBlock();
                             if (responseSender == null) {
+                                Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"发来不符合http语法的请求数据，已应用IllegalData规则。\" x");
                                 com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
                                 return;
+                            }
+                            else {
+                                Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"发来不符合http语法的请求数据，已应用IllegalData规则。\" " + responseSender.responseInfo.responseCode);
                             }
                             break;
                     }
@@ -268,10 +289,12 @@ public class ClientConnection implements PooledRunnable {
                 case HttpRequestInfo.HEADER_SIZE_EXCEED:
                     //如果浏览器发来的请求头过大(最大字节数在配置文件中定义)，则向浏览器发送413 Request Entity Too Large。
                     responseSender = new HttpResponseSender(new HttpResponseInfo(413), null);
+                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"发来的请求头过长。\" " + responseSender.responseInfo.responseCode);
                     break;
                 case HttpRequestInfo.PATH_LENGTH_EXCEED:
                     //如果浏览器请求的URL过长(最大字符数在配置文件中定义)，则向浏览器发送414 Request-URI Too Large。
                     responseSender = new HttpResponseSender(new HttpResponseInfo(414), null);
+                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"请求的URI过长。\" " + responseSender.responseInfo.responseCode);
                     break;
             }
             //至此，如果浏览器发来的请求被成功解析，则responseSender应该为null，否则按responseSender中的描述向浏览器返回数据并断开连接。
@@ -287,13 +310,58 @@ public class ClientConnection implements PooledRunnable {
 
             //如果http版本不是1.1，则向浏览器发送505 HTTP Version not supported，并断开连接。
             if (!"1.1".equals(requestInfo.protocolVersion)) {
+                Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"未使用HTTP/1.1协议。\" 505");
                 try {
                     sendResponse(new HttpResponseSender(new HttpResponseInfo(505), null), false, null, out);
                 } catch (IOException ignored) {}
                 com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
                 return;
             }
-
+            //服务器仅支持GET和POST
+            if (!"GET".equals(requestInfo.method) && !"POST".equals(requestInfo.method)) {
+                Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" 501 (请求方法不受支持)");
+                try {
+                    sendResponse(new HttpResponseSender(new HttpResponseInfo(501), null), false, null, out);
+                } catch (IOException ignored) {}
+                com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
+                return;
+            }
+            //必须指定Host字段，且内容正确
+            Host selfHost = null;
+            String hostField = requestInfo.headers.getFieldValue("Host");
+            if (hostField != null) {
+                try {
+                    selfHost = Host.parse(hostField);
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (selfHost == null) {
+                //如果Host不正确，则触发了IllegalAgent规则。
+                switch (runtimeSettings.protections.precautionForIllegalAgent.method) {
+                    case "disabled":
+                        responseSender = null;
+                        break;
+                    case "action":
+                        responseSender = doPrecaution(runtimeSettings.protections.precautionForIllegalData, false);
+                        break;
+                    case "block":
+                        Program.addBlackList(clientIp, System.currentTimeMillis() + runtimeSettings.protections.precautionForIllegalData.blockLengthInMinute * 60000);
+                        responseSender = doPrecautionForBlock();
+                        break;
+                }
+                if (responseSender == null) {
+                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode + " (未指定Host字段)");
+                }
+                else {
+                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" x (未指定Host字段)");
+                    try {
+                        sendResponse(responseSender, false, null, out);
+                    } catch (IOException ignored) {}
+                }
+                com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
+                return;
+            }
             //通过X-Requested-With字段的情况判断是否为xhr请求。
             boolean xhr = "XMLHttpRequest".equals(requestInfo.headers.getFieldValue("X-Requested-With"));
             //通过Connection字段的情况判断浏览器是否想复用此连接。
@@ -304,19 +372,7 @@ public class ClientConnection implements PooledRunnable {
             //通过Accept-Encoding字段的情况判断浏览器想以何种压缩方式返回内容。responseEncoding为null则代表不压缩，返回原始数据。
             String responseEncoding = Utils.analyseQualityValues(requestInfo.headers.getFieldValue("Accept-Encoding"), HttpContentEncodedStreamFactory.getSupportedContentEncodings());
 
-            //第三步：判断ip封禁，若封禁，则流程结束。
-            if (BlackListManager.inBlackList(clientIp)) {
-                responseSender = doPrecautionForBlock(xhr);
-                if (responseSender != null) {
-                    try {
-                        sendResponse(responseSender, false, responseEncoding, out);
-                    } catch (IOException ignored) {}
-                }
-                com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
-                return;
-            }
-
-            //第四步：实例化webapp
+            //第三步：实例化webapp
 
             //获得当前服务器端口的APP映射表
             Settings.ApplicationMapping applicationMapping = runtimeSettings.appMappings.get(serverPort);
@@ -335,6 +391,7 @@ public class ClientConnection implements PooledRunnable {
             //如果未找到任何有效APP，则向浏览器返回404。
             if (webApplicationSettings == null) {
                 try {
+                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" 404 (未找到有效的WepApp)");
                     sendResponse(new HttpResponseSender(new HttpResponseInfo(404), null), flag && clientWantToKeepConnection, null, out);
                 } catch (IOException e) {
                     com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
@@ -347,10 +404,11 @@ public class ClientConnection implements PooledRunnable {
                 if (webApplication != null) {
                     webApplication.onDestroy();
                 }
-                webApplication = WebApplicationFactory.fromSettings(webApplicationSettings, appWorkingRootURI);
+                webApplication = WebApplicationFactory.fromSettings(webApplicationSettings, appWorkingRootURI, selfHost);
                 //如果实例化失败，则向浏览器返回500
                 if (webApplication == null) {
                     try {
+                        Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" 500 (WepApp实例化失败)");
                         sendResponse(new HttpResponseSender(new HttpResponseInfo(500), null), flag && clientWantToKeepConnection, null, out);
                     } catch (IOException e) {
                         com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
@@ -368,20 +426,24 @@ public class ClientConnection implements PooledRunnable {
                     if (ruler.ruler.judge(clientIp, requestInfo)) {
                         continue;
                     }
-                    Log.logRequest(Log.LOG_INFO, LOG_CATEGORY, IP.toString(clientIp) + " 已触发" + ruler.name + "规则。");
                     if (ruler.block) {
                         Program.addBlackList(clientIp, System.currentTimeMillis() + ruler.precaution.blockLengthInMinute * 60000);
-                        responseSender = doPrecautionForBlock(xhr);
+                        responseSender = doPrecautionForBlock();
                         if (responseSender != null) {
+                            Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode + " (触发" + ruler.name + "规则)");
                             try {
                                 sendResponse(responseSender, false, responseEncoding, out);
                             } catch (IOException ignored) {}
+                        }
+                        else {
+                            Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" x (触发" + ruler.name + "规则)");
                         }
                         com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
                         webApplication.onDestroy();
                         return;
                     }
                     if (ruler.precaution == null) {
+                        Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + ruler.responseCode + " (触发" + ruler.name + "规则)");
                         try {
                             sendResponse(new HttpResponseSender(new HttpResponseInfo(ruler.responseCode), null), flag && clientWantToKeepConnection, responseEncoding, out);
                         } catch (IOException ignored) {
@@ -394,9 +456,13 @@ public class ClientConnection implements PooledRunnable {
                     else {
                         responseSender = doPrecaution(ruler.precaution, xhr);
                         if (responseSender != null) {
+                            Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode + " (触发" + ruler.name + "规则)");
                             try {
                                 sendResponse(responseSender, false, responseEncoding, out);
                             } catch (IOException ignored) {}
+                        }
+                        else {
+                            Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" x (触发" + ruler.name + "规则)");
                         }
                         com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
                         webApplication.onDestroy();
@@ -429,6 +495,7 @@ public class ClientConnection implements PooledRunnable {
                 }
                 if (responseSender != null) {
                     try {
+                        Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode);
                         sendResponse(responseSender, flag && clientWantToKeepConnection, responseEncoding, out);
                     }
                     catch (IOException e) {
@@ -445,6 +512,7 @@ public class ClientConnection implements PooledRunnable {
             responseSender = webApplication.onClientRequest(requestInfo, contentReceiver, clientIp, serverPort, ssl);
             //如果onClientRequest返回null则直接断开连接
             if (responseSender == null) {
+                Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" x");
                 com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
                 webApplication.onDestroy();
                 return;
@@ -460,6 +528,7 @@ public class ClientConnection implements PooledRunnable {
 
             //将返回内容发送给浏览器
             try {
+                Program.logRequest(Log.LOG_INFO, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode);
                 sendResponse(responseSender, flag && clientWantToKeepConnection && !"close".equals(responseSender.responseInfo.headers.getFieldValue("Connection")), responseEncoding, out);
             } catch (IOException ignored) {
                 com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);

@@ -3,7 +3,6 @@ package com.davidsoft.serverprotect.apps;
 import com.davidsoft.net.*;
 import com.davidsoft.net.http.*;
 import com.davidsoft.serverprotect.Utils;
-import com.davidsoft.serverprotect.components.Log;
 import com.davidsoft.url.URI;
 
 import javax.net.ssl.SSLSocketFactory;
@@ -13,6 +12,7 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
+import java.util.Map;
 
 public class ForwardWebApplication extends BaseWebApplication {
 
@@ -83,7 +83,6 @@ public class ForwardWebApplication extends BaseWebApplication {
         if (forwardIp) {
             targetRequestInfo.headers.setFieldValue("X-Forwarded-For", IP.toString(clientIp));
         }
-        //TODO: 处理Cookie
         
         //2. 构造准备发给目标服务器的内容
         HttpRequestSender requestSender = new HttpRequestForwardSender(targetRequestInfo, requestContent);
@@ -107,7 +106,6 @@ public class ForwardWebApplication extends BaseWebApplication {
                     targetInputStream = targetSocket.getInputStream();
                 } catch (IOException e) {
                     e.printStackTrace();
-                    Log.logRequest(Log.LOG_ERROR, "转发器", "接收：" + requestInfo.toAbstractString() + "；因连不上目标服务器而失败。");
                     return new HttpResponseSender(new HttpResponseInfo(502), null);
                 }
             }
@@ -119,7 +117,6 @@ public class ForwardWebApplication extends BaseWebApplication {
             } catch (IOException e) {
                 if (retrying) {
                     e.printStackTrace();
-                    Log.logRequest(Log.LOG_ERROR, "转发器", "接收：" + requestInfo.toAbstractString() + "；因向目标服务器发送数据时发生IO异常而失败。");
                     return new HttpResponseSender(new HttpResponseInfo(502), null);
                 }
                 else {
@@ -136,7 +133,6 @@ public class ForwardWebApplication extends BaseWebApplication {
                 responseInfo = HttpResponseInfo.fromHttpStream(targetInputStream);
                 if (responseInfo == null) {
                     if (retrying) {
-                        Log.logRequest(Log.LOG_ERROR, "转发器", "接收：" + requestInfo.toAbstractString() + "；因目标服务器返回的Header不正确而失败。");
                         return new HttpResponseSender(new HttpResponseInfo(502), null);
                     }
                     else {
@@ -149,7 +145,6 @@ public class ForwardWebApplication extends BaseWebApplication {
             } catch (IOException e) {
                 if (retrying) {
                     e.printStackTrace();
-                    Log.logRequest(Log.LOG_ERROR, "转发器", "接收：" + requestInfo.toAbstractString() + "；因从目标服务器接收数据时发生IO异常而失败。");
                     return new HttpResponseSender(new HttpResponseInfo(502), null);
                 }
                 else {
@@ -161,8 +156,6 @@ public class ForwardWebApplication extends BaseWebApplication {
             }
             targetContentReceiver = new HttpContentReceiver(targetInputStream, responseInfo.responseCode, responseInfo.headers);
             if (targetContentReceiver.analyseContent() != HttpContentReceiver.ANALYSE_SUCCESS) {
-                Log.logRequest(Log.LOG_ERROR, "转发器", "接收：" + requestInfo.toAbstractString() + "；因目标服务器返回的Content不正确而失败。");
-                Log.logRequest(Log.LOG_ERROR, "转发器", responseInfo.toString());
                 return new HttpResponseSender(new HttpResponseInfo(502), null);
             }
 
@@ -170,15 +163,42 @@ public class ForwardWebApplication extends BaseWebApplication {
         }
         
         //6. 将收到的请求转换为要发浏览器的格式
+        Origin clientOrigin = new Origin(targetSSL ? "http://" : "https+//", getSelfHost());
         if (responseInfo.headers.containsField("Access-Control-Allow-Origin")) {
-            responseInfo.headers.setFieldValue("Access-Control-Allow-Origin", (targetSSL ? "http://" : "https+//") + requestInfo.headers.getFieldValue("host"));
+            responseInfo.headers.setFieldValue("Access-Control-Allow-Origin", clientOrigin.toString());
         }
-        
+        String redirectLocation = requestInfo.headers.getFieldValue("Location");
+        if (redirectLocation != null) {
+            URL redirectUrl = null;
+            try {
+                redirectUrl = URL.parse(redirectLocation);
+            } catch (ParseException ignored) {
+                //默认服务器不会返回无效的url
+            }
+            if (targetOrigin.equals(redirectUrl.getOrigin())) {
+                requestInfo.headers.setFieldValue("Location", new URL(clientOrigin, getWorkingRootURI().getInto(redirectUrl.getUri())).toString());
+            }
+        }
         //TODO: 处理Cookie
+        for (Map.Entry<String, String> entry : responseInfo.headers.cookies.entrySet()) {
+            String[] patterns = entry.getValue().split("; ");
+            boolean needProcess = false;
+            for (int i = 0; i < patterns.length; i++) {
+                if (patterns[i].startsWith("domain=") && UrlCodec.urlDecodeString(patterns[i].substring(7), StandardCharsets.UTF_8).equals(targetDomain)) {
+                    needProcess = true;
+                    patterns[i] = "domain=" + targetDomain;
+                }
+                else if (!getWorkingRootURI().locationIsRoot() && patterns[i].startsWith("path=")) {
+                    needProcess = true;
+                    patterns[i] = "path=" + NetURI.toString(getWorkingRootURI()) + patterns[i].substring(6);
+                }
+            }
+            if (needProcess) {
+                entry.setValue(String.join("; ", patterns));
+            }
+        }
 
         //7. 发送给浏览器
-        Log.logRequest(Log.LOG_INFO, "转发器", "接收：" + requestInfo.toAbstractString() + "；返回：" + responseInfo.toAbstractString());
-
         return new HttpResponseForwardSender(responseInfo, targetContentReceiver);
     }
 

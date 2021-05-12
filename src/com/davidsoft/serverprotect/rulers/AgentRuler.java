@@ -1,7 +1,10 @@
 package com.davidsoft.serverprotect.rulers;
 
+import com.davidsoft.net.Origin;
 import com.davidsoft.net.http.HttpRequestInfo;
 import com.davidsoft.net.http.HttpResponseInfo;
+
+import java.text.ParseException;
 
 public class AgentRuler implements Ruler {
 
@@ -23,7 +26,7 @@ public class AgentRuler implements Ruler {
         if (!userAgent.startsWith("AppleWebKit/537.36 (KHTML, like Gecko) ", findPos)) {
             return false;
         }
-        //检查语法
+        //检查UserAgent语法
         findPos += 39;
         userAgent = userAgent.substring(findPos);
         if (userAgent.length() == 0) {
@@ -42,6 +45,19 @@ public class AgentRuler implements Ruler {
             }
             findPos = pattern.indexOf('/', findPos + 1);
             if (findPos != -1) {
+                return false;
+            }
+        }
+        //如果是POST请求，则必须包含origin字段，且格式正确
+        if ("POST".equals(requestInfo.method)) {
+            String origin = requestInfo.headers.getFieldValue("Origin");
+            if (origin == null) {
+                return false;
+            }
+            try {
+                Origin.parse(origin);
+            } catch (ParseException e) {
+                e.printStackTrace();
                 return false;
             }
         }

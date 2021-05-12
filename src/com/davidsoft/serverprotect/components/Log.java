@@ -91,7 +91,13 @@ public final class Log {
     }
 
     private static boolean changeFileLog(long now) {
-        long currentDateTimeStamp = now / 86400000L * 86400000L;
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(System.currentTimeMillis());
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        long currentDateTimeStamp = calendar.getTimeInMillis();
         if (currentDateTimeStamp <= lastDateTimeStamp) {
             return true;
         }
@@ -105,7 +111,13 @@ public final class Log {
     }
 
     public static void startUp() {
-        lastDateTimeStamp = System.currentTimeMillis() / 86400000L * 86400000L;
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(System.currentTimeMillis());
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        lastDateTimeStamp = calendar.getTimeInMillis();
         if (!openFileLog()) {
             logMain(Log.LOG_WARNING, LOG_CATEGORY, "无法将日志写入文件，此后您将只能在控制台中查看日志。");
         }
