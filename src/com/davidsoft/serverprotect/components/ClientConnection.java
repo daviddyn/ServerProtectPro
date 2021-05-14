@@ -419,7 +419,7 @@ public class ClientConnection implements PooledRunnable {
                 webApplication.onCreate();
             }
 
-            //第五步：如果此APP启用了防火墙，则逐一判断规则
+            //第四步：如果此APP启用了防火墙，则逐一判断规则
 
             if (webApplication.isProtectEnabled()) {
                 for (RulerNode ruler : rulers) {
@@ -471,7 +471,7 @@ public class ClientConnection implements PooledRunnable {
                 }
             }
 
-            //第六步：分析请求头是否合理
+            //第五步：分析请求头是否合理
 
             HttpContentReceiver contentReceiver = null;
             if ("POST".equals(requestInfo.method)) {
@@ -506,7 +506,7 @@ public class ClientConnection implements PooledRunnable {
                 }
             }
 
-            //第七步：执行webapp，获得正常情况下应当向浏览器返回的内容。
+            //第六步：执行webapp，获得正常情况下应当向浏览器返回的内容。
 
             //调用WebApp的onClientRequest方法获得返回内容
             responseSender = webApplication.onClientRequest(requestInfo, contentReceiver, clientIp, serverPort, ssl);
@@ -518,7 +518,7 @@ public class ClientConnection implements PooledRunnable {
                 return;
             }
 
-            //第八步：将返回内容发送给浏览器之前，如果此APP启用了防火墙，则调用规则的onDoSomethingForResponse
+            //第七步：将返回内容发送给浏览器之前，如果此APP启用了防火墙，则调用规则的onDoSomethingForResponse
 
             if (webApplication.isProtectEnabled()) {
                 for (RulerNode ruler : rulers) {
@@ -526,7 +526,7 @@ public class ClientConnection implements PooledRunnable {
                 }
             }
 
-            //将返回内容发送给浏览器
+            //第八步：将返回内容发送给浏览器
             try {
                 Program.logRequest(Log.LOG_INFO, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode);
                 sendResponse(responseSender, flag && clientWantToKeepConnection && !"close".equals(responseSender.responseInfo.headers.getFieldValue("Connection")), responseEncoding, out);
