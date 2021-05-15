@@ -104,7 +104,7 @@ public class RegexIP {
     }
 
     public static long fromIp(int ip) {
-        return ip;
+        return ip & 0xFFFFFFFFL;
     }
 
     public static int toIp(long regexIp) {

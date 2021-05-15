@@ -3,8 +3,6 @@ package com.davidsoft.serverprotect.apps;
 import com.davidsoft.net.*;
 import com.davidsoft.net.http.*;
 import com.davidsoft.serverprotect.Utils;
-import com.davidsoft.serverprotect.components.Log;
-import com.davidsoft.serverprotect.components.Program;
 import com.davidsoft.url.URI;
 
 import javax.net.ssl.SSLSocketFactory;
@@ -15,7 +13,6 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Semaphore;
 
 public class ForwardWebApplication extends BaseWebApplication {
@@ -28,7 +25,6 @@ public class ForwardWebApplication extends BaseWebApplication {
     private Socket targetSocket;
     private OutputStream targetOutputStream;
     private InputStream targetInputStream;
-    private ThreadedHttpResponseReceiver threadedHttpResponseReceiver;
 
     public ForwardWebApplication(String targetDomain, int targetPort, boolean targetSSL, boolean forwardIp) {
         this.targetDomain = targetDomain;
@@ -94,86 +90,53 @@ public class ForwardWebApplication extends BaseWebApplication {
 
         HttpResponseInfo responseInfo;
         HttpContentReceiver targetContentReceiver;
-        boolean retrying = false;
 
-        while (true) {
+        //3. 尝试连接目标服务器，连不上、发生网络问题则向浏览器返回502
 
-            //3. 尝试连接目标服务器，连不上、发生网络问题则向浏览器返回502
-
-            if (targetSocket == null) {
-                try {
-                    if (targetSSL) {
-                        targetSocket = SSLSocketFactory.getDefault().createSocket(targetDomain, targetPort);
-                    } else {
-                        targetSocket = new Socket(targetDomain, targetPort);
-                    }
-                    targetOutputStream = targetSocket.getOutputStream();
-                    targetInputStream = targetSocket.getInputStream();
-                    threadedHttpResponseReceiver = new ThreadedHttpResponseReceiver(targetInputStream);
-                    threadedHttpResponseReceiver.start();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    return new HttpResponseSender(new HttpResponseInfo(502), null);
+        if (targetSocket == null) {
+            try {
+                if (targetSSL) {
+                    targetSocket = SSLSocketFactory.getDefault().createSocket(targetDomain, targetPort);
+                } else {
+                    targetSocket = new Socket(targetDomain, targetPort);
                 }
-            }
-            else {
-                threadedHttpResponseReceiver.continueDetect();
-            }
-
-            //4. 向目标服务器发送请求，发生网络问题则向浏览器返回502
-
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            if (threadedHttpResponseReceiver.isClosed()) {
-                Program.logMain(Log.LOG_ERROR, "Debug", "已检测到关闭");
-                Utils.closeWithoutException(targetSocket);
-                targetSocket = null;
-                continue;
-            }
-            else {
-                Program.logMain(Log.LOG_ERROR, "Debug", "未测到关闭！！！");
-            }
-
-            try {
-                requestSender.send(targetOutputStream);
+                targetOutputStream = targetSocket.getOutputStream();
+                targetInputStream = targetSocket.getInputStream();
             } catch (IOException e) {
-                Utils.closeWithoutException(targetSocket);
-                threadedHttpResponseReceiver.interrupt();
-                targetSocket = null;
-                if (retrying) {
-                    e.printStackTrace();
-                    return new HttpResponseSender(new HttpResponseInfo(502), null);
-                }
-                else {
-                    retrying = true;
-                    continue;
-                }
-            }
-
-            //5. 从目标服务器接收Response，发生网络问题、不符合语法则向浏览器返回502
-
-            if (threadedHttpResponseReceiver.isClosed()) {
+                e.printStackTrace();
                 return new HttpResponseSender(new HttpResponseInfo(502), null);
             }
-            responseInfo = threadedHttpResponseReceiver.getResponseInfo();
-            if (responseInfo == null) {
-                Utils.closeWithoutException(targetSocket);
-                threadedHttpResponseReceiver.interrupt();
-                targetSocket = null;
-                return new HttpResponseSender(new HttpResponseInfo(502), null);
-            }
-            targetContentReceiver = new HttpContentReceiver(targetInputStream, responseInfo.responseCode, responseInfo.headers);
-            if (targetContentReceiver.analyseContent() != HttpContentReceiver.ANALYSE_SUCCESS) {
-                Utils.closeWithoutException(targetSocket);
-                threadedHttpResponseReceiver.interrupt();
-                targetSocket = null;
-                return new HttpResponseSender(new HttpResponseInfo(502), null);
-            }
+        }
 
-            break;
+        //4. 向目标服务器发送请求，发生网络问题则断开连接（浏览器端自己会重传^_^）
+
+        try {
+            requestSender.send(targetOutputStream);
+        } catch (IOException e) {
+            Utils.closeWithoutException(targetSocket);
+            targetSocket = null;
+            return null;
+        }
+
+        //5. 从目标服务器接收Response，发生网络问题则断开连接（浏览器端自己会重传^_^），不符合语法则向浏览器返回502
+
+        try {
+            responseInfo = HttpResponseInfo.fromHttpStream(targetInputStream);
+        } catch (IOException e) {
+            Utils.closeWithoutException(targetSocket);
+            targetSocket = null;
+            return null;
+        }
+        if (responseInfo == null) {
+            Utils.closeWithoutException(targetSocket);
+            targetSocket = null;
+            return new HttpResponseSender(new HttpResponseInfo(502), null);
+        }
+        targetContentReceiver = new HttpContentReceiver(targetInputStream, responseInfo.responseCode, responseInfo.headers);
+        if (targetContentReceiver.analyseContent() != HttpContentReceiver.ANALYSE_SUCCESS) {
+            Utils.closeWithoutException(targetSocket);
+            targetSocket = null;
+            return new HttpResponseSender(new HttpResponseInfo(502), null);
         }
         
         //6. 将收到的请求转换为要发浏览器的格式
@@ -226,7 +189,6 @@ public class ForwardWebApplication extends BaseWebApplication {
     public void onDestroy() {
         if (targetSocket != null) {
             Utils.closeWithoutException(targetSocket);
-            threadedHttpResponseReceiver.interrupt();
         }
         super.onDestroy();
     }

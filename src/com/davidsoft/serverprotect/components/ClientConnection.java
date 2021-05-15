@@ -2,6 +2,7 @@ package com.davidsoft.serverprotect.components;
 
 import com.davidsoft.net.Host;
 import com.davidsoft.net.IP;
+import com.davidsoft.net.RegexIP;
 import com.davidsoft.net.http.*;
 import com.davidsoft.serverprotect.apps.WebApplicationFactory;
 import com.davidsoft.serverprotect.libs.PooledRunnable;
@@ -22,8 +23,6 @@ import java.util.ArrayList;
  * 此类用于处理客户端与服务端的通信。一个此类的实例对应一个浏览器的本服务器的连接。
  */
 public class ClientConnection implements PooledRunnable {
-
-    private static final String LOG_CATEGORY = "通用请求处理器";
 
     private static final class RulerNode {
         private final String name;
@@ -71,14 +70,6 @@ public class ClientConnection implements PooledRunnable {
                 break;
             case "action":
                 rulerBuilder.add(new RulerNode("illegalForward", new ForwardRuler(), false, runtimeSettings.protections.precautionForIllegalForward, 0));
-                break;
-        }
-        switch (runtimeSettings.protections.precautionForIllegalMethod.method) {
-            case "block":
-                rulerBuilder.add(new RulerNode("illegalMethod", new MethodRuler(), true, runtimeSettings.protections.precautionForIllegalMethod, 0));
-                break;
-            case "action":
-                rulerBuilder.add(new RulerNode("illegalMethod", new MethodRuler(), false, runtimeSettings.protections.precautionForIllegalMethod, 0));
                 break;
         }
         switch (runtimeSettings.protections.precautionForIllegalAgent.method) {
@@ -273,7 +264,7 @@ public class ClientConnection implements PooledRunnable {
                             break;
                         case "block":
                             //如果IllegalData规则设置为[封禁ip]，则封禁ip。
-                            Program.addBlackList(clientIp, System.currentTimeMillis() + runtimeSettings.protections.precautionForIllegalData.blockLengthInMinute * 60000);
+                            Program.addBlackList(RegexIP.fromIp(clientIp), System.currentTimeMillis() + runtimeSettings.protections.precautionForIllegalData.blockLengthInMinute * 60000);
                             responseSender = doPrecautionForBlock();
                             if (responseSender == null) {
                                 Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"发来不符合http语法的请求数据，已应用IllegalData规则。\" x");
@@ -319,10 +310,28 @@ public class ClientConnection implements PooledRunnable {
             }
             //服务器仅支持GET和POST
             if (!"GET".equals(requestInfo.method) && !"POST".equals(requestInfo.method)) {
-                Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" 501 (请求方法不受支持)");
-                try {
-                    sendResponse(new HttpResponseSender(new HttpResponseInfo(501), null), false, null, out);
-                } catch (IOException ignored) {}
+                switch (runtimeSettings.protections.precautionForIllegalMethod.method) {
+                    case "disabled":
+                        responseSender = new HttpResponseSender(new HttpResponseInfo(501), null);
+                        break;
+                    case "action":
+                        responseSender = doPrecaution(runtimeSettings.protections.precautionForIllegalData, false);
+                        break;
+                    case "block":
+                        //如果IllegalData规则设置为[封禁ip]，则封禁ip。
+                        Program.addBlackList(RegexIP.fromIp(clientIp), System.currentTimeMillis() + runtimeSettings.protections.precautionForIllegalData.blockLengthInMinute * 60000);
+                        responseSender = doPrecautionForBlock();
+                        break;
+                }
+                if (responseSender == null) {
+                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" x (请求方法不受支持)");
+                }
+                else {
+                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode + " (请求方法不受支持)");
+                    try {
+                        sendResponse(responseSender, false, null, out);
+                    } catch (IOException ignored) {}
+                }
                 com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
                 return;
             }
@@ -346,15 +355,15 @@ public class ClientConnection implements PooledRunnable {
                         responseSender = doPrecaution(runtimeSettings.protections.precautionForIllegalData, false);
                         break;
                     case "block":
-                        Program.addBlackList(clientIp, System.currentTimeMillis() + runtimeSettings.protections.precautionForIllegalData.blockLengthInMinute * 60000);
+                        Program.addBlackList(RegexIP.fromIp(clientIp), System.currentTimeMillis() + runtimeSettings.protections.precautionForIllegalData.blockLengthInMinute * 60000);
                         responseSender = doPrecautionForBlock();
                         break;
                 }
                 if (responseSender == null) {
-                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode + " (未指定Host字段)");
+                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" x (未指定Host字段)");
                 }
                 else {
-                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" x (未指定Host字段)");
+                    Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode + " (未指定Host字段)");
                     try {
                         sendResponse(responseSender, false, null, out);
                     } catch (IOException ignored) {}
@@ -427,7 +436,7 @@ public class ClientConnection implements PooledRunnable {
                         continue;
                     }
                     if (ruler.block) {
-                        Program.addBlackList(clientIp, System.currentTimeMillis() + ruler.precaution.blockLengthInMinute * 60000);
+                        Program.addBlackList(RegexIP.fromIp(clientIp), System.currentTimeMillis() + ruler.precaution.blockLengthInMinute * 60000);
                         responseSender = doPrecautionForBlock();
                         if (responseSender != null) {
                             Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" " + responseSender.responseInfo.responseCode + " (触发" + ruler.name + "规则)");
@@ -512,7 +521,7 @@ public class ClientConnection implements PooledRunnable {
             responseSender = webApplication.onClientRequest(requestInfo, contentReceiver, clientIp, serverPort, ssl);
             //如果onClientRequest返回null则直接断开连接
             if (responseSender == null) {
-                Program.logRequest(Log.LOG_WARNING, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" x");
+                Program.logRequest(Log.LOG_INFO, IP.toString(clientIp), "\"" + requestInfo.toAbstractString() + "\" x");
                 com.davidsoft.serverprotect.Utils.closeWithoutException(socket, true);
                 webApplication.onDestroy();
                 return;
